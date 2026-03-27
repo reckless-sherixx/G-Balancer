@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -9,6 +9,7 @@ import {
   BarChart4, CloudLightning, Database, Power, Maximize,
   Menu, X
 } from "lucide-react";
+import Lenis from "lenis";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -36,7 +37,21 @@ export default function Home() {
   const container = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  useEffect(() => {
+    const lenis = new Lenis();
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+    gsap.ticker.lagSmoothing(0);
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
+
   useGSAP(() => {
+    ScrollTrigger.defaults({ toggleActions: "play reverse play reverse" });
+
     // ----------------------------------------------------
     // HERO ANIMATIONS
     // ----------------------------------------------------
@@ -180,7 +195,8 @@ export default function Home() {
     });
 
     dashTl
-      .from(".dash-wrapper", { y: 50, opacity: 0, duration: 1, ease: "power4.out" })
+      .from(".dash-header", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" })
+      .from(".dash-wrapper", { y: 50, opacity: 0, duration: 1, ease: "power4.out" }, "-=0.4")
       .from(".dash-element", { opacity: 0, y: 20, stagger: 0.1, duration: 0.6, ease: "power2.out" })
       .to(".dash-stat", {
         innerHTML: 99.9,
@@ -435,7 +451,7 @@ export default function Home() {
 
       {/* 6. DASHBOARD PREVIEW */}
       <section className="dashboard-section w-full py-24 md:py-32 px-6 md:px-12 lg:px-24 bg-[#0B0B0B]">
-        <div className="sol-header mb-12 md:mb-16 text-center">
+        <div className="dash-header mb-12 md:mb-16 text-center">
           <h3 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">Mission Control</h3>
           <p className="mt-4 md:mt-6 text-white/40 text-base md:text-lg max-w-xl mx-auto">Unmatched visibility into local and global grid status.</p>
         </div>
@@ -446,7 +462,7 @@ export default function Home() {
             <div className="w-3 h-3 rounded-full bg-[#333]"></div>
             <div className="w-3 h-3 rounded-full bg-[#333]"></div>
             <div className="w-3 h-3 rounded-full bg-[#333]"></div>
-            <div className="mx-auto text-[10px] md:text-xs font-mono text-white/30 uppercase tracking-[0.2em] hidden sm:block">G-Balancer OS v1.0.4</div>
+            <div className="mx-auto text-[10px] md:text-xs font-mono text-white/30 uppercase tracking-[0.2em]">G-Balancer OS v1.0.4</div>
           </div>
           
           <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 bg-[#050505]">
