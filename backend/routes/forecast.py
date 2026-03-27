@@ -1,7 +1,7 @@
 # routes/forecast.py
 from fastapi import APIRouter, Query
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 
 from schemas.grid_schema import ForecastRequest, ForecastResponse, HourlyForecast, GridAction
 from services.weather_service import fetch_hourly_forecast
@@ -10,6 +10,18 @@ from models.demand_forecaster import predict_demand, predict_solar, predict_wind
 from config import settings
 
 router = APIRouter(prefix="/forecast", tags=["Forecast"])
+
+
+@router.get("/", summary="Quick forecast via GET for mobile app")
+async def get_forecast_get(
+    hours: int = Query(default=12, ge=1, le=168),
+    city: str = Query(default=settings.DEFAULT_CITY),
+    lat: float = Query(default=settings.DEFAULT_LATITUDE),
+    lon: float = Query(default=settings.DEFAULT_LONGITUDE)
+):
+    """GET endpoint for quick forecast - mobile friendly."""
+    request = ForecastRequest(city=city, latitude=lat, longitude=lon, hours_ahead=hours)
+    return await get_forecast(request)
 
 
 @router.post("/", response_model=ForecastResponse,

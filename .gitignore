@@ -1,4 +1,17 @@
-# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+.env
+backend/ml/models/*.pt
+backend/ml/models/*.pkl
+backend/ml/data/real/
+backend/ml/data/processed/
+mobile/gbalancer/.expo/# Virtual Environments
 venv/
 .venv/
 env/

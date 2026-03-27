@@ -19,6 +19,7 @@ from routes.grid import router as grid_router
 from routes.forecast import router as forecast_router
 from routes.dashboard import router as dashboard_router
 from routes.websocket_route import router as ws_router
+from routes.mobile_compat import router as mobile_router
 from models.demand_forecaster import get_models   # pre-load models on startup
 
 # ─── Scheduled task: auto-balance every minute ────────────────────────
@@ -107,10 +108,25 @@ async def auto_balance_task():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print("\n" + "="*70)
     print(f"🚀 Starting {settings.APP_NAME} v{settings.VERSION}")
+    print("="*70)
+    print(f"⏰ Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    print(f"🌍 Location: {settings.DEFAULT_CITY} ({settings.DEFAULT_LATITUDE}, {settings.DEFAULT_LONGITUDE})")
+    print(f"🔌 Port: 8000")
+    print(f"📚 Docs: http://localhost:8000/docs")
+    
+    print("\n📋 Initialization steps:")
+    
+    print("   1️⃣  Initializing database...")
     await init_db()
+    print("      ✅ Database ready")
+    
+    print("   2️⃣  Loading ML models...")
     get_models()   # pre-load / train ML models
+    print("      ✅ Models loaded")
 
+    print("   3️⃣  Starting scheduler...")
     scheduler.add_job(
         auto_balance_task,
         "interval",
@@ -119,13 +135,24 @@ async def lifespan(app: FastAPI):
         replace_existing=True
     )
     scheduler.start()
-    print(f"⏰ Scheduler started — balancing every {settings.BALANCE_INTERVAL_SECONDS}s")
+    print(f"      ✅ Scheduler started (interval: {settings.BALANCE_INTERVAL_SECONDS}s)")
+    
+    print("\n✅ App startup complete!")
+    print("="*70)
+    print("Ready to receive requests on:")
+    print("  📱 Mobile endpoints: /simulate, /grid-status, /predict")
+    print("  📊 Forecast endpoint: /forecast")
+    print("  📡 Dashboard: /dashboard")
+    print("  🔌 WebSocket: /ws/grid/{city}")
+    print("  📚 API Docs: /docs")
+    print("="*70 + "\n")
 
     yield  # app runs here
 
     # Shutdown
+    print("\n🛑 Shutting down...")
     scheduler.shutdown()
-    print("🛑 Scheduler stopped. Goodbye!")
+    print("✅ Scheduler stopped. Goodbye!\n")
 
 
 # ─── App Instance ─────────────────────────────────────────────────────
@@ -159,6 +186,7 @@ app.include_router(grid_router)
 app.include_router(forecast_router)
 app.include_router(dashboard_router)
 app.include_router(ws_router)
+app.include_router(mobile_router)  # Mobile app compatibility endpoints
 
 
 # ─── Root ─────────────────────────────────────────────────────────────
