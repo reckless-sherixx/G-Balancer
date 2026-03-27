@@ -34,9 +34,97 @@ FEATURE_COLS = [
 TARGET_COLS = ["total_supply_kwh", "demand_kwh"]
 
 
+REQUIRED_BASE_COLS = [
+    "timestamp",
+    "hour",
+    "day_of_week",
+    "month",
+    "is_weekend",
+    "solar_kwh",
+    "wind_kwh",
+    "total_supply_kwh",
+    "demand_kwh",
+    "battery_pct",
+    "surplus_kwh",
+]
+
+
 def get_scaler_path():
     """Returns the path where the scaler should be saved/loaded."""
     return os.path.join(os.path.dirname(__file__), "..", "models", "scaler.pkl")
+
+
+def resolve_default_data_path() -> str:
+    """Resolves the first available default dataset path for local runs."""
+    base_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+    candidates = [
+        os.path.join(base_dir, "real", "india_grid_data_real.csv"),
+        os.path.join(base_dir, "processed", "synthetic_grid_data.csv"),
+        os.path.join(base_dir, "processed", "india_grid_data_real.csv"),
+    ]
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+
+    raise FileNotFoundError(
+        "No dataset found. Checked: " + ", ".join(candidates)
+    )
+
+
+def normalize_input_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Maps alternate source column names to the canonical training schema."""
+    df = df.copy()
+
+    # Handle alternate naming from real India dataset.
+    rename_map = {
+        "solar_generation_mw": "solar_kwh",
+        "wind_generation_mw": "wind_kwh",
+        "demand_mw": "demand_kwh",
+        "surplus_deficit_mw": "surplus_kwh",
+        "battery_level_pct": "battery_pct",
+    }
+    applicable = {k: v for k, v in rename_map.items() if k in df.columns and v not in df.columns}
+    if applicable:
+        df = df.rename(columns=applicable)
+
+    # Prefer total_supply_mw when available; otherwise fallback to renewable_generation_mw.
+    if "total_supply_kwh" not in df.columns:
+        if "total_supply_mw" in df.columns:
+            df = df.rename(columns={"total_supply_mw": "total_supply_kwh"})
+        elif "renewable_generation_mw" in df.columns:
+            df = df.rename(columns={"renewable_generation_mw": "total_supply_kwh"})
+
+    if "timestamp" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+    # Build battery_pct when level/capacity are present.
+    if "battery_pct" not in df.columns and {"battery_level_mwh", "battery_capacity_mwh"}.issubset(df.columns):
+        capacity = df["battery_capacity_mwh"].replace(0, np.nan)
+        df["battery_pct"] = (df["battery_level_mwh"] / capacity) * 100.0
+
+    # Ensure surplus exists even if source file doesn't include it.
+    if "surplus_kwh" not in df.columns and {"total_supply_kwh", "demand_kwh"}.issubset(df.columns):
+        df["surplus_kwh"] = df["total_supply_kwh"] - df["demand_kwh"]
+
+    # If time breakdown is missing, derive from timestamp.
+    if "timestamp" in df.columns:
+        if "hour" not in df.columns:
+            df["hour"] = df["timestamp"].dt.hour
+        if "day_of_week" not in df.columns:
+            df["day_of_week"] = df["timestamp"].dt.dayofweek
+        if "month" not in df.columns:
+            df["month"] = df["timestamp"].dt.month
+        if "is_weekend" not in df.columns:
+            df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+
+    missing = [col for col in REQUIRED_BASE_COLS if col not in df.columns]
+    if missing:
+        raise ValueError(
+            "Missing required columns after normalization: " + ", ".join(missing)
+        )
+
+    return df
 
 
 # ─── Time Encoding ─────────────────────────────────────────────────────────────
@@ -208,6 +296,10 @@ def build_recommender_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Serie
         "hour_cos",
         "is_weekend",
     ]
+
+    if "action" not in df.columns:
+        raise ValueError("Column 'action' is required before building recommender features")
+
     available = [c for c in rec_features if c in df.columns]
     X = df[available].dropna()
     y = df.loc[X.index, "action"]
@@ -232,7 +324,13 @@ def run_pipeline(csv_path: str, fit: bool = True) -> dict:
             df_processed          → Fully processed DataFrame
     """
     print(f"Loading data from {csv_path}...")
+    if not os.path.exists(csv_path):
+        fallback_path = resolve_default_data_path()
+        print(f"Requested data not found. Falling back to {fallback_path}")
+        csv_path = fallback_path
+
     df = pd.read_csv(csv_path, parse_dates=["timestamp"])
+    df = normalize_input_columns(df)
 
     print("Encoding cyclical time features...")
     df = encode_cyclical(df)
@@ -245,6 +343,22 @@ def run_pipeline(csv_path: str, fit: bool = True) -> dict:
 
     # Drop rows with NaN from lag/rolling (first ~24 rows)
     df = df.dropna().reset_index(drop=True)
+
+    # Generate action labels from raw (unscaled) values when missing.
+    if "action" not in df.columns:
+        def infer_action_raw(row: pd.Series) -> str:
+            surplus = row["surplus_kwh"]
+            battery = row["battery_pct"]
+
+            if surplus > 2.0 and battery < 90:
+                return "STORE"
+            if surplus < -2.0 and battery > 10:
+                return "RELEASE"
+            if surplus < -2.0 and battery <= 10:
+                return "REDISTRIBUTE"
+            return "STABLE"
+
+        df["action"] = df.apply(infer_action_raw, axis=1)
 
     # Fit or load scaler
     scale_cols = [c for c in FEATURE_COLS if c in df.columns]
@@ -278,5 +392,5 @@ def run_pipeline(csv_path: str, fit: bool = True) -> dict:
 
 
 if __name__ == "__main__":
-    data_path = os.path.join(os.path.dirname(__file__), "..", "data", "processed", "synthetic_grid_data.csv")
+    data_path = resolve_default_data_path()
     result = run_pipeline(data_path, fit=True)

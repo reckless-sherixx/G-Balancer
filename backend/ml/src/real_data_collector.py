@@ -270,6 +270,76 @@ class RealDataCollector:
         
         print(f"✓ Estimated renewable generation")
         return result
+
+    def simulate_dispatchable_and_battery(self, data_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Simulate dispatchable generation and battery behavior to create realistic
+        grid balancing states for training.
+
+        The simulation tries to keep supply close to demand while preserving
+        operational imperfections (ramp limits, forecast error, reserve bias).
+        """
+        result = data_df.copy()
+        n = len(result)
+
+        renewable = result['renewable_generation_mw'].to_numpy(dtype=float)
+        demand = result['demand_mw'].to_numpy(dtype=float)
+
+        # Net load that must be covered by dispatchable generation.
+        net_load = np.maximum(demand - renewable, 0.0)
+        smoothed_net = pd.Series(net_load).rolling(3, min_periods=1).mean().to_numpy()
+
+        # Dispatch simulation parameters (roughly aligned to utility-scale behavior).
+        ramp_limit_mw = 9000.0
+        reserve_bias_mw = np.random.normal(loc=0.0, scale=3500.0, size=n)
+
+        dispatchable = np.zeros(n, dtype=float)
+        dispatchable[0] = max(smoothed_net[0] + reserve_bias_mw[0], 0.0)
+
+        for i in range(1, n):
+            target = max(smoothed_net[i] + reserve_bias_mw[i], 0.0)
+            prev = dispatchable[i - 1]
+            lower = max(prev - ramp_limit_mw, 0.0)
+            upper = prev + ramp_limit_mw
+            dispatchable[i] = float(np.clip(target, lower, upper))
+
+        # Add real-world balancing noise so all states are not perfectly matched.
+        balancing_error = np.random.normal(loc=0.0, scale=2200.0, size=n)
+
+        total_supply = renewable + dispatchable + balancing_error
+        surplus = total_supply - demand
+
+        # Battery system simulation.
+        battery_capacity_mwh = 120000.0
+        max_charge_rate_mwh = 6000.0
+        max_discharge_rate_mwh = 7000.0
+        charge_eff = 0.94
+        discharge_eff = 0.92
+
+        battery_level = np.zeros(n, dtype=float)
+        battery_level[0] = 0.58 * battery_capacity_mwh
+
+        for i in range(1, n):
+            prev = battery_level[i - 1]
+            hourly_surplus = surplus[i - 1]
+
+            if hourly_surplus > 0:
+                charge = min(hourly_surplus * charge_eff, max_charge_rate_mwh, battery_capacity_mwh - prev)
+                battery_level[i] = prev + max(charge, 0.0)
+            elif hourly_surplus < 0:
+                discharge_needed = abs(hourly_surplus) / discharge_eff
+                discharge = min(discharge_needed, max_discharge_rate_mwh, prev)
+                battery_level[i] = prev - max(discharge, 0.0)
+            else:
+                battery_level[i] = prev
+
+        result['dispatchable_generation_mw'] = dispatchable
+        result['total_supply_mw'] = total_supply
+        result['surplus_deficit_mw'] = surplus
+        result['battery_capacity_mwh'] = battery_capacity_mwh
+        result['battery_level_mwh'] = battery_level
+
+        return result
     
     def collect_all_data(self, days: int = 90) -> pd.DataFrame:
         """
@@ -355,13 +425,8 @@ class RealDataCollector:
         else:
             data_df['demand_mw'] = data_df['load_mw']
         
-        # 7. Calculate grid metrics
-        data_df['total_supply_mw'] = data_df['renewable_generation_mw']
-        data_df['surplus_deficit_mw'] = data_df['total_supply_mw'] - data_df['demand_mw']
-        
-        # Battery simulation (India has ~10 GWh capacity)
-        data_df['battery_capacity_mwh'] = 10000
-        data_df['battery_level_mwh'] = data_df['battery_capacity_mwh'] * 0.5  # Start at 50%
+        # 7. Simulate dispatchable balancing and battery dynamics.
+        data_df = self.simulate_dispatchable_and_battery(data_df)
         
         # Add time features
         data_df['hour'] = data_df['timestamp'].dt.hour
@@ -374,7 +439,7 @@ class RealDataCollector:
         weather_cols = ['temperature_c', 'cloud_cover_pct', 'wind_speed_kmh', 'solar_irradiance']
         energy_cols = [
             'solar_generation_mw', 'wind_generation_mw', 'renewable_generation_mw',
-            'total_supply_mw', 'demand_mw', 'surplus_deficit_mw',
+            'dispatchable_generation_mw', 'total_supply_mw', 'demand_mw', 'surplus_deficit_mw',
             'battery_level_mwh', 'battery_capacity_mwh'
         ]
         

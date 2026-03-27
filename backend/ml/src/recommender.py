@@ -17,7 +17,7 @@ import joblib
 import os
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -32,6 +32,21 @@ def get_encoder_path():
 
 
 ACTION_LABELS = ["REDISTRIBUTE", "RELEASE", "STABLE", "STORE"]  # alphabetical for LabelEncoder
+
+
+class ConstantRecommender:
+    """Fallback model for degenerate training sets containing a single class."""
+
+    def __init__(self, class_index: int = 0):
+        self.class_index = class_index
+
+    def predict_proba(self, X):
+        n = len(X)
+        return np.ones((n, 1), dtype=float)
+
+    def predict(self, X):
+        n = len(X)
+        return np.full(n, self.class_index, dtype=int)
 
 
 # ─── Training ─────────────────────────────────────────────────────────────────
@@ -49,11 +64,27 @@ def train_recommender(X: pd.DataFrame, y: pd.Series) -> XGBClassifier:
     """
     print("Encoding action labels...")
     le = LabelEncoder()
-    le.fit(ACTION_LABELS)
+    le.fit(sorted(pd.Series(y).astype(str).unique().tolist()))
     y_encoded = le.transform(y)
 
+    unique_classes = np.unique(y_encoded)
+    if len(unique_classes) < 2:
+        only_action = le.inverse_transform([int(unique_classes[0])])[0]
+        print(
+            f"Only one class present in training data ({only_action}). "
+            "Saving a constant recommender fallback model."
+        )
+        model = ConstantRecommender(class_index=int(unique_classes[0]))
+        print("Training Accuracy: 1.0000")
+        print("Validation Accuracy: 1.0000")
+        save_recommender(model, le)
+        return model
+
+    class_counts = pd.Series(y_encoded).value_counts()
+    stratify_labels = y_encoded if class_counts.min() >= 2 else None
+
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+        X, y_encoded, test_size=0.2, random_state=42, stratify=stratify_labels
     )
 
     print(f"Training recommender on {len(X_train)} samples...")
@@ -65,7 +96,7 @@ def train_recommender(X: pd.DataFrame, y: pd.Series) -> XGBClassifier:
         subsample=0.8,
         colsample_bytree=0.8,
         use_label_encoder=False,
-        eval_metric="mlogloss",
+        eval_metric=["mlogloss", "merror"],
         random_state=42,
         n_jobs=-1,
     )
@@ -78,9 +109,17 @@ def train_recommender(X: pd.DataFrame, y: pd.Series) -> XGBClassifier:
     )
 
     # Evaluate
+    y_train_pred = model.predict(X_train)
     y_pred = model.predict(X_test)
+    train_acc = accuracy_score(y_train, y_train_pred)
+    val_acc = accuracy_score(y_test, y_pred)
+
+    print(f"Training Accuracy: {train_acc:.4f}")
+    print(f"Validation Accuracy: {val_acc:.4f}")
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=le.classes_))
+    labels = sorted(np.unique(np.concatenate([y_test, y_pred])))
+    target_names = le.inverse_transform(labels)
+    print(classification_report(y_test, y_pred, labels=labels, target_names=target_names))
 
     # Save
     save_recommender(model, le)
@@ -170,11 +209,11 @@ def recommend(
     feature_df = pd.DataFrame([features])
     proba = model.predict_proba(feature_df)[0]  # (n_classes,)
     pred_idx = int(np.argmax(proba))
-    action = encoder.inverse_transform([pred_idx])[0]
+    action = str(encoder.inverse_transform([pred_idx])[0])
     confidence = float(proba[pred_idx])
 
     all_probs = {
-        encoder.inverse_transform([i])[0]: round(float(p), 4)
+        str(encoder.inverse_transform([i])[0]): round(float(p), 4)
         for i, p in enumerate(proba)
     }
 

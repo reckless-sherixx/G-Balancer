@@ -25,6 +25,15 @@ def get_model_path():
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def tolerance_accuracy(preds: torch.Tensor, target: torch.Tensor, tolerance: float = 0.05) -> float:
+    """
+    Fraction of predicted values within an absolute tolerance of target values.
+    On MinMax-scaled targets, tolerance=0.05 means within 5% of scaled range.
+    """
+    within = torch.abs(preds - target) <= tolerance
+    return float(within.float().mean().item())
+
+
 # ─── Dataset ──────────────────────────────────────────────────────────────────
 
 class GridSequenceDataset(Dataset):
@@ -164,6 +173,7 @@ def train_forecaster(
         # Training phase
         model.train()
         train_losses = []
+        train_accs = []
         for X_batch, y_batch in train_loader:
             X_batch, y_batch = X_batch.to(DEVICE), y_batch.to(DEVICE)
             optimizer.zero_grad()
@@ -173,18 +183,23 @@ def train_forecaster(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             train_losses.append(loss.item())
+            train_accs.append(tolerance_accuracy(preds, y_batch))
 
         # Validation phase
         model.eval()
         val_losses = []
+        val_accs = []
         with torch.no_grad():
             for X_batch, y_batch in val_loader:
                 X_batch, y_batch = X_batch.to(DEVICE), y_batch.to(DEVICE)
                 preds = model(X_batch)
                 val_losses.append(criterion(preds, y_batch).item())
+            val_accs.append(tolerance_accuracy(preds, y_batch))
 
         avg_train = np.mean(train_losses)
         avg_val = np.mean(val_losses)
+        avg_train_acc = np.mean(train_accs)
+        avg_val_acc = np.mean(val_accs)
         scheduler.step(avg_val)
 
         if avg_val < best_val_loss:
@@ -192,7 +207,11 @@ def train_forecaster(
             save_model(model)
 
         if epoch % 10 == 0 or epoch == 1:
-            print(f"Epoch {epoch:3d}/{epochs} | Train Loss: {avg_train:.4f} | Val Loss: {avg_val:.4f}")
+            print(
+                f"Epoch {epoch:3d}/{epochs} | "
+                f"Train Loss: {avg_train:.4f} | Val Loss: {avg_val:.4f} | "
+                f"Train Acc@5%: {avg_train_acc:.4f} | Val Acc@5%: {avg_val_acc:.4f}"
+            )
 
     print(f"\nTraining complete. Best val loss: {best_val_loss:.4f}")
     return model
