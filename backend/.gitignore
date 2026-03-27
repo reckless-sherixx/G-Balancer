@@ -1,34 +1,20 @@
-# dependencies (bun install)
-node_modules
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
 
-# output
-out
-dist
-*.tgz
+# Virtual environments
+.venv/
+venv/
 
-# code coverage
-coverage
-*.lcov
+# Test/cache tooling
+.pytest_cache/
+.mypy_cache/
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# Local environment files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
 
-# caches
-.eslintcache
-.cache
-*.tsbuildinfo
-
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
+# Editor/OS files
+.idea/
 .DS_Store
