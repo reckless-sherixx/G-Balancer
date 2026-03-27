@@ -1,112 +1,130 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { ForecastBars } from '@/components/grid/forecast-bars';
+import { MetricCard } from '@/components/grid/metric-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { useForecastData } from '@/features/grid/hooks';
 
-export default function TabTwoScreen() {
+export default function ForecastScreen() {
+  const forecast = useForecastData();
+
+  const nextPoint = forecast.data?.points[0];
+  const sixthPoint = forecast.data?.points[5];
+  const dayPoint = forecast.data?.points[23];
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
+    <ScrollView contentContainerStyle={styles.container}>
+      <ThemedView style={styles.topCard}>
+        <ThemedText type="title">Energy Forecast</ThemedText>
+        <ThemedText>
+          LSTM output for supply and demand windows over the selected horizon.
         </ThemedText>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+
+      {forecast.loading && (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="small" />
+          <ThemedText>Fetching forecast horizon...</ThemedText>
+        </View>
+      )}
+
+      {!!forecast.error && (
+        <ThemedView style={styles.errorCard}>
+          <ThemedText type="defaultSemiBold">Forecast endpoint error</ThemedText>
+          <ThemedText>{forecast.error}</ThemedText>
+        </ThemedView>
+      )}
+
+      <View style={styles.metricsGrid}>
+        <MetricCard
+          title="Next 1h Delta"
+          value={`${((nextPoint?.supply ?? 0) - (nextPoint?.demand ?? 0)).toFixed(1)} MW`}
+          hint="Immediate surplus (+) or deficit (-)"
         />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+        <MetricCard
+          title="Next 6h Delta"
+          value={`${((sixthPoint?.supply ?? 0) - (sixthPoint?.demand ?? 0)).toFixed(1)} MW`}
+          hint="Mid-window balancing signal"
+        />
+        <MetricCard
+          title="Next 24h Delta"
+          value={`${((dayPoint?.supply ?? 0) - (dayPoint?.demand ?? 0)).toFixed(1)} MW`}
+          hint="Day-level planning estimate"
+        />
+      </View>
+
+      <ThemedView style={styles.sectionCard}>
+        <ThemedText type="subtitle">Supply vs Demand</ThemedText>
+        <ForecastBars points={forecast.data?.points ?? []} />
+        <ThemedText style={styles.legend}>Green = Supply, Red = Demand</ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.tableCard}>
+        <ThemedText type="subtitle">Upcoming Points</ThemedText>
+        {(forecast.data?.points ?? []).slice(0, 6).map((point) => (
+          <View key={point.timestamp} style={styles.row}>
+            <ThemedText>{new Date(point.timestamp).toLocaleTimeString()}</ThemedText>
+            <ThemedText>{`${point.supply.toFixed(1)} / ${point.demand.toFixed(1)} MW`}</ThemedText>
+          </View>
+        ))}
+      </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    padding: 16,
+    gap: 14,
+    paddingBottom: 28,
   },
-  titleContainer: {
-    flexDirection: 'row',
+  topCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.25)',
+    backgroundColor: 'rgba(21, 101, 192, 0.08)',
+    padding: 14,
     gap: 8,
+  },
+  loaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 60, 60, 0.4)',
+    padding: 12,
+    gap: 6,
+  },
+  metricsGrid: {
+    gap: 10,
+  },
+  sectionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.2)',
+    padding: 14,
+    gap: 10,
+  },
+  legend: {
+    fontSize: 12,
+    opacity: 0.75,
+  },
+  tableCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.2)',
+    padding: 14,
+    gap: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128, 128, 128, 0.35)',
   },
 });
