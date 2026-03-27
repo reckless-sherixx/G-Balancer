@@ -1,0 +1,292 @@
+INTELLIGENT ENERGY GRID BALANCER
+MASTER INSTRUCTIONS + CHANGE LOG + NEXT STEPS
+
+Last updated: 2026-03-27
+
+====================================================================
+1) WHAT WAS RECEIVED (REQUIREMENTS AND CONTEXT)
+====================================================================
+
+Project problem statement received:
+- Renewable supply (solar/wind) is intermittent.
+- Grid requires real-time balance between supply and demand.
+- ML should forecast near-future supply and demand, then recommend action.
+
+ML architecture received:
+- Model 1: LSTM forecaster for next 1h/6h/24h windows.
+- Model 2: Action recommender (XGBoost/LightGBM style) for STORE/RELEASE/REDISTRIBUTE/STABLE.
+
+Data flow received:
+- Raw sources -> preprocessing -> forecaster -> surplus/deficit -> recommender -> FastAPI -> Expo frontend.
+
+Frontend ask received:
+- Implement required frontend changes in the React Native Expo mobile app.
+- Use proper folder/file structure.
+- Display forecast, status, and action outputs from ML API.
+
+
+====================================================================
+2) FILE INVENTORY (ALREADY THERE / MODIFIED / NEW)
+====================================================================
+
+2.1) Already present before this implementation (mobile core)
+- mobile/gbalancer/app/_layout.tsx
+- mobile/gbalancer/app/modal.tsx
+- mobile/gbalancer/app/(tabs)/index.tsx
+- mobile/gbalancer/app/(tabs)/explore.tsx
+- mobile/gbalancer/app/(tabs)/_layout.tsx
+- mobile/gbalancer/components/themed-text.tsx
+- mobile/gbalancer/components/themed-view.tsx
+- mobile/gbalancer/components/ui/icon-symbol.tsx
+- mobile/gbalancer/components/ui/icon-symbol.ios.tsx
+- mobile/gbalancer/components/ui/collapsible.tsx
+- mobile/gbalancer/constants/theme.ts
+- mobile/gbalancer/hooks/use-color-scheme.ts
+- mobile/gbalancer/hooks/use-color-scheme.web.ts
+- mobile/gbalancer/hooks/use-theme-color.ts
+- mobile/gbalancer/package.json
+- mobile/gbalancer/tsconfig.json
+
+2.2) Already present before this implementation (ml tree/folders)
+- ml/api/
+- ml/data/
+- ml/data/raw/
+- ml/data/processed/
+- ml/models/
+- ml/notebooks/
+- ml/src/
+
+2.3) Modified files (changed from template/previous content)
+- mobile/gbalancer/app/(tabs)/index.tsx
+  - Converted starter Home tab into Grid Operations overview.
+  - Added live cards for battery, grid state, current supply/demand/surplus.
+  - Added refresh button and forecast summary section.
+
+- mobile/gbalancer/app/(tabs)/explore.tsx
+  - Converted Explore template into Forecast screen.
+  - Added delta cards (1h/6h/24h), forecast bars, and point list.
+
+- mobile/gbalancer/app/(tabs)/_layout.tsx
+  - Updated tabs to Overview, Forecast, and Actions.
+
+- mobile/gbalancer/documentation/AllInstructions.txt
+  - Rewritten as complete source-of-truth document.
+
+2.4) Newly created files (mobile frontend)
+- mobile/gbalancer/app/(tabs)/actions.tsx
+- mobile/gbalancer/features/grid/types.ts
+- mobile/gbalancer/features/grid/hooks.ts
+- mobile/gbalancer/features/grid/api.ts
+- mobile/gbalancer/components/grid/metric-card.tsx
+- mobile/gbalancer/components/grid/action-badge.tsx
+- mobile/gbalancer/components/grid/forecast-bars.tsx
+
+2.5) Newly created files (ml side, now populated)
+- ml/api/main.py
+- ml/api/schemas.py
+- ml/src/preprocess.py
+- ml/src/forecaster.py
+- ml/src/recommender.py
+- ml/src/simulator.py
+- ml/requirements.txt
+- ml/notebooks/01_eda.ipynb
+- ml/notebooks/02_forecaster_train.ipynb
+- ml/notebooks/03_recommender_train.ipynb
+- ml/models/forecaster.pt
+- ml/models/recommender.pkl
+
+
+====================================================================
+3) CURRENT FRONTEND TO BACKEND CONTRACT USED
+====================================================================
+
+The mobile app currently integrates with:
+- GET /forecast
+- POST /grid-status
+- POST /predict
+- GET /simulate (used by mobile helper flow to seed current status payload)
+
+Important implementation note:
+- /predict requires arrays (solar_output_kwh, wind_output_kwh, demand_kwh).
+- The mobile frontend action tab currently takes simple user inputs, then builds
+  a valid synthetic request body before calling /predict.
+- This keeps the UX simple while matching your current API schema.
+
+
+====================================================================
+4) WHAT TO DO NEXT (VERY DETAILED, EXACT STEPS)
+====================================================================
+
+Follow these steps exactly on Windows PowerShell.
+
+--------------------------------------------------------------------
+STEP A - PREPARE ML ENVIRONMENT
+--------------------------------------------------------------------
+1. Open a new PowerShell terminal at repo root.
+2. Run:
+  cd "D:\1A Full Stack Projects\G-Balancer\ml"
+3. Create virtual environment:
+  python -m venv .venv
+4. Activate virtual environment:
+  .\.venv\Scripts\Activate.ps1
+5. Confirm active Python path points to .venv:
+  where python
+6. Upgrade pip (recommended):
+  python -m pip install --upgrade pip
+7. Install ML dependencies:
+  pip install -r requirements.txt
+
+Expected outcome:
+- No installation errors.
+- Virtual environment stays active in this terminal session.
+
+--------------------------------------------------------------------
+STEP B - PREPARE / TRAIN ARTIFACTS IF NEEDED
+--------------------------------------------------------------------
+Run these if your model files are placeholders or invalid:
+
+1. Generate synthetic data:
+  python src/simulator.py
+
+2. Preprocess and fit scaler:
+  python src/preprocess.py
+
+3. Train forecaster:
+  python src/forecaster.py
+
+4. Train recommender:
+  python src/recommender.py
+
+Expected outcome:
+- Processed CSV exists in data/processed.
+- Trained artifacts exist in models (including model/scaler/encoder as applicable).
+
+--------------------------------------------------------------------
+STEP C - RUN ML API
+--------------------------------------------------------------------
+1. Keep the same activated ML terminal.
+2. Start FastAPI:
+  uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+3. Validate API is up:
+  - Open browser: http://localhost:8000/docs
+  - Open browser: http://localhost:8000/health
+
+Expected outcome:
+- Swagger docs load.
+- Health endpoint returns success and model load flags.
+
+--------------------------------------------------------------------
+STEP D - PREPARE MOBILE APP
+--------------------------------------------------------------------
+1. Open second PowerShell terminal.
+2. Go to mobile app:
+  cd "D:\1A Full Stack Projects\G-Balancer\mobile\gbalancer"
+3. Install dependencies:
+  npm install
+4. Set API URL env var for this terminal session:
+  $env:EXPO_PUBLIC_ML_API_URL="http://localhost:8000"
+
+If using Android emulator, this may also work without env var because client
+default includes 10.0.2.2 fallback.
+
+If using real phone on same LAN:
+- Replace localhost with your machine IP, example:
+  $env:EXPO_PUBLIC_ML_API_URL="http://192.168.1.20:8000"
+
+--------------------------------------------------------------------
+STEP E - START EXPO
+--------------------------------------------------------------------
+1. Run:
+  npm run start
+2. In Expo terminal:
+  - Press a for Android emulator
+  - Press i for iOS simulator (macOS only)
+  - Press w for web
+
+Expected outcome:
+- App launches with 3 tabs:
+  - Overview
+  - Forecast
+  - Actions
+
+--------------------------------------------------------------------
+STEP F - FUNCTIONAL CHECKLIST (MANUAL QA)
+--------------------------------------------------------------------
+Overview tab checks:
+1. Confirm API URL line is visible.
+2. Confirm Battery Level, Grid State, Current Supply/Demand/Surplus cards render.
+3. Tap Refresh Data and verify loading state appears and clears.
+4. Confirm Forecast Snapshot bars render (if forecast data present).
+
+Forecast tab checks:
+1. Confirm Next 1h/6h/24h delta cards render.
+2. Confirm bars for supply vs demand render.
+3. Confirm upcoming points list renders time/value rows.
+
+Actions tab checks:
+1. Enter surplus, battery percent, stress.
+2. Tap Run Recommendation.
+3. Confirm badge action appears (STORE/RELEASE/REDISTRIBUTE/STABLE).
+4. Confirm confidence, urgency, predicted surplus metrics appear.
+
+Error-state checks:
+1. Stop the ML API and verify app shows endpoint error card/messages.
+2. Restart API and verify recovery after refresh.
+
+--------------------------------------------------------------------
+STEP G - TROUBLESHOOTING GUIDE
+--------------------------------------------------------------------
+Issue: API not reachable from app
+1. Confirm uvicorn is running on port 8000.
+2. Confirm env var points to reachable host.
+3. For phone testing, use LAN IP not localhost.
+4. Check Windows firewall allows Python/uvicorn inbound on private network.
+
+Issue: /predict fails with schema validation errors
+1. Verify API contract in ml/api/schemas.py.
+2. Confirm mobile action payload builder still sends required arrays.
+3. Inspect API response body in error message shown in app.
+
+Issue: model not loaded
+1. Check /health flags.
+2. Retrain artifacts with simulator/preprocess/forecaster/recommender commands.
+3. Restart uvicorn after artifacts exist.
+
+Issue: lint command fails
+1. Run:
+  cd "D:\1A Full Stack Projects\G-Balancer\mobile\gbalancer"
+  npm run lint
+2. Resolve reported file/line issues directly.
+
+--------------------------------------------------------------------
+STEP H - RECOMMENDED NEXT IMPROVEMENTS
+--------------------------------------------------------------------
+1. Add dedicated in-app Settings screen for API base URL and save via secure storage.
+2. Move synthetic /predict payload generation from client to backend gateway layer.
+3. Add polling (30-60s) for /grid-status with background-safe behavior.
+4. Add unit tests for features/grid/api.ts normalization functions.
+5. Add loading skeletons and empty states for all cards/charts.
+6. Add backend auth and CORS tightening for non-hackathon deployments.
+
+
+====================================================================
+5) QUICK COMMAND REFERENCE
+====================================================================
+
+ML setup and run:
+cd "D:\1A Full Stack Projects\G-Balancer\ml"
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python src/simulator.py
+python src/preprocess.py
+python src/forecaster.py
+python src/recommender.py
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+Mobile setup and run:
+cd "D:\1A Full Stack Projects\G-Balancer\mobile\gbalancer"
+npm install
+$env:EXPO_PUBLIC_ML_API_URL="http://localhost:8000"
+npm run start
+
