@@ -16,7 +16,12 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 import os
 
-MODEL_PATH = "../models/forecaster.pt"
+
+def get_model_path():
+    """Returns the path where the forecaster model should be saved/loaded."""
+    return os.path.join(os.path.dirname(__file__), "..", "models", "forecaster.pt")
+
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -195,14 +200,16 @@ def train_forecaster(
 
 # ─── Persistence ──────────────────────────────────────────────────────────────
 
-def save_model(model: EnergyForecaster, path: str = MODEL_PATH):
+def save_model(model: EnergyForecaster, path: str = None):
     """Saves model weights to disk."""
+    if path is None:
+        path = get_model_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}")
 
 
-def load_model(path: str = MODEL_PATH, input_size: int = 13) -> EnergyForecaster:
+def load_model(path: str = None, input_size: int = 13) -> EnergyForecaster:
     """
     Loads a saved model from disk.
 
@@ -213,6 +220,8 @@ def load_model(path: str = MODEL_PATH, input_size: int = 13) -> EnergyForecaster
     Returns:
         Loaded EnergyForecaster in eval mode
     """
+    if path is None:
+        path = get_model_path()
     model = EnergyForecaster(input_size=input_size)
     model.load_state_dict(torch.load(path, map_location=DEVICE))
     model.eval()
@@ -249,7 +258,6 @@ def predict(model: EnergyForecaster, sequence: np.ndarray) -> dict:
 
 
 if __name__ == "__main__":
-    import os
     from preprocess import run_pipeline
 
     print("Running preprocessing pipeline...")

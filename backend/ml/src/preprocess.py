@@ -33,7 +33,10 @@ FEATURE_COLS = [
 ]
 TARGET_COLS = ["total_supply_kwh", "demand_kwh"]
 
-SCALER_PATH = "../models/scaler.pkl"
+
+def get_scaler_path():
+    """Returns the path where the scaler should be saved/loaded."""
+    return os.path.join(os.path.dirname(__file__), "..", "models", "scaler.pkl")
 
 
 # ─── Time Encoding ─────────────────────────────────────────────────────────────
@@ -115,15 +118,17 @@ def fit_scaler(df: pd.DataFrame, cols: list) -> MinMaxScaler:
     """
     scaler = MinMaxScaler()
     scaler.fit(df[cols].dropna())
-    os.makedirs(os.path.dirname(SCALER_PATH), exist_ok=True)
-    joblib.dump(scaler, SCALER_PATH)
-    print(f"Scaler saved to {SCALER_PATH}")
+    scaler_path = get_scaler_path()
+    os.makedirs(os.path.dirname(scaler_path), exist_ok=True)
+    joblib.dump(scaler, scaler_path)
+    print(f"Scaler saved to {scaler_path}")
     return scaler
 
 
 def load_scaler() -> MinMaxScaler:
     """Loads the saved scaler from disk."""
-    return joblib.load(SCALER_PATH)
+    scaler_path = get_scaler_path()
+    return joblib.load(scaler_path)
 
 
 def scale_features(df: pd.DataFrame, cols: list, scaler: MinMaxScaler) -> pd.DataFrame:
@@ -273,6 +278,5 @@ def run_pipeline(csv_path: str, fit: bool = True) -> dict:
 
 
 if __name__ == "__main__":
-    import os
     data_path = os.path.join(os.path.dirname(__file__), "..", "data", "processed", "synthetic_grid_data.csv")
     result = run_pipeline(data_path, fit=True)
