@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { useGridStatusData, useForecastData } from "@/features/grid/hooks";
@@ -25,7 +26,19 @@ const INPUT_COLORS = {
   critical: "#ff4444",
 };
 
-const MetricLabel = ({ label, value, unit, icon, color }: { label: string; value: string | number; unit?: string; icon: string; color: string }) => (
+const MetricLabel = ({
+  label,
+  value,
+  unit,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+  icon: string;
+  color: string;
+}) => (
   <View style={[styles.metricItem, { borderColor: color }]}>
     <View style={[styles.metricIcon, { backgroundColor: `${color}25` }]}>
       <MaterialCommunityIcons name={icon as any} size={18} color={color} />
@@ -62,125 +75,230 @@ export default function HomeScreen() {
 
   if (gridStatus.loading && !gridStatus.data) {
     return (
-      <View style={styles.fullScreenCenter}>
-        <ActivityIndicator size="large" color={INPUT_COLORS.neon} />
-        <Text style={styles.helperText}>Initializing grid comms...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.fullScreenCenter}>
+          <ActivityIndicator size="large" color={INPUT_COLORS.neon} />
+          <Text style={styles.helperText}>Initializing grid comms...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (gridStatus.error && !gridStatus.data) {
     return (
-      <View style={styles.fullScreenCenter}>
-        <MaterialCommunityIcons name="alert-circle" size={56} color={INPUT_COLORS.critical} />
-        <Text style={styles.errorTitle}>Data link failure</Text>
-        <Text style={styles.errorText}>{gridStatus.error}</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.fullScreenCenter}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={56}
+            color={INPUT_COLORS.critical}
+          />
+          <Text style={styles.errorTitle}>Data link failure</Text>
+          <Text style={styles.errorText}>{gridStatus.error}</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   const gridData = gridStatus.data;
   if (!gridData) {
     return (
-      <View style={styles.fullScreenCenter}>
-        <MaterialCommunityIcons name="database-off" size={52} color={INPUT_COLORS.amber} />
-        <Text style={styles.errorTitle}>No grid feed</Text>
-        <Text style={styles.errorText}>Live telemetry unavailable</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.fullScreenCenter}>
+          <MaterialCommunityIcons
+            name="database-off"
+            size={52}
+            color={INPUT_COLORS.amber}
+          />
+          <Text style={styles.errorTitle}>No grid feed</Text>
+          <Text style={styles.errorText}>Live telemetry unavailable</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   const isHealthy = gridData.currentSupply >= gridData.currentDemand;
-  const balanceDelta = Math.abs(gridData.currentSupply - gridData.currentDemand).toFixed(1);
-  const renewablePercent = gridData.currentSupply > 0 ? ((gridData.solarGenerationMw + gridData.windGenerationMw) / gridData.currentSupply) * 100 : 0;
+  const balanceDelta = Math.abs(
+    gridData.currentSupply - gridData.currentDemand,
+  ).toFixed(1);
+  const renewablePercent =
+    gridData.currentSupply > 0
+      ? ((gridData.solarGenerationMw + gridData.windGenerationMw) /
+          gridData.currentSupply) *
+        100
+      : 0;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={gridStatus.loading} onRefresh={() => gridStatus.refresh()} tintColor={INPUT_COLORS.neon} />
-      }
-    >
-      <View style={styles.heroSection}>
-        <Text style={styles.heroTitle}>G-Balancer Control Matrix</Text>
-        <Text style={styles.heroSubtitle}>Command Center · Live operations</Text>
-      </View>
-
-      <View style={styles.alertRow}>
-        <Animated.View
-          style={[
-            styles.pulseDot,
-            {
-              backgroundColor: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical,
-              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.85] }),
-            },
-          ]}
-        />
-        <View>
-          <Text style={[styles.statusTitle, { color: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}>
-            {isHealthy ? "GRID SURPLUS" : "GRID DEFICIT"}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={gridStatus.loading}
+            onRefresh={() => gridStatus.refresh()}
+            tintColor={INPUT_COLORS.neon}
+          />
+        }
+      >
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>G-Balancer Control Matrix</Text>
+          <Text style={styles.heroSubtitle}>
+            Command Center · Live operations
           </Text>
-          <Text style={styles.statusMessage}>Diff {balanceDelta} MW</Text>
         </View>
-      </View>
 
-      <View style={styles.overviewGrid}>
-        <MetricLabel icon="power-plug" label="Supply" value={gridData.currentSupply.toFixed(1)} unit="MW" color={INPUT_COLORS.cyan} />
-        <MetricLabel icon="flash" label="Demand" value={gridData.currentDemand.toFixed(1)} unit="MW" color={INPUT_COLORS.amber} />
-        <MetricLabel icon="battery" label="Battery" value={`${gridData.batteryLevelPct.toFixed(1)}%`} color={INPUT_COLORS.neon} />
-        <MetricLabel icon="leaf" label="Renewable" value={`${renewablePercent.toFixed(1)}%`} color={INPUT_COLORS.neon} />
-      </View>
-
-      <View style={styles.sectionPanel}>
-        <Text style={styles.sectionTitle}>Performance Blueprint</Text>
-        <View style={styles.rotateLayout}>
-          <View style={styles.smallPanel}>
-            <Text style={styles.panelLabel}>Solar Output</Text>
-            <Text style={styles.panelValue}>{gridData.solarGenerationMw.toFixed(1)} MW</Text>
-          </View>
-          <View style={styles.smallPanel}>
-            <Text style={styles.panelLabel}>Wind Output</Text>
-            <Text style={styles.panelValue}>{gridData.windGenerationMw.toFixed(1)} MW</Text>
+        <View style={styles.alertRow}>
+          <Animated.View
+            style={[
+              styles.pulseDot,
+              {
+                backgroundColor: isHealthy
+                  ? INPUT_COLORS.neon
+                  : INPUT_COLORS.critical,
+                opacity: pulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.35, 0.85],
+                }),
+              },
+            ]}
+          />
+          <View>
+            <Text
+              style={[
+                styles.statusTitle,
+                {
+                  color: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical,
+                },
+              ]}
+            >
+              {isHealthy ? "GRID SURPLUS" : "GRID DEFICIT"}
+            </Text>
+            <Text style={styles.statusMessage}>Diff {balanceDelta} MW</Text>
           </View>
         </View>
-        <View style={styles.impactRow}>
-          <View style={styles.impactStat}>
-            <Text style={styles.impactHint}>Estimated Surplus</Text>
-            <Text style={styles.impactValue}>{((gridData.currentSupply - gridData.currentDemand) * 1000).toFixed(0)} kWh</Text>
+
+        <View style={styles.overviewGrid}>
+          <MetricLabel
+            icon="power-plug"
+            label="Supply"
+            value={gridData.currentSupply.toFixed(1)}
+            unit="MW"
+            color={INPUT_COLORS.cyan}
+          />
+          <MetricLabel
+            icon="flash"
+            label="Demand"
+            value={gridData.currentDemand.toFixed(1)}
+            unit="MW"
+            color={INPUT_COLORS.amber}
+          />
+          <MetricLabel
+            icon="battery"
+            label="Battery"
+            value={`${gridData.batteryLevelPct.toFixed(1)}%`}
+            color={INPUT_COLORS.neon}
+          />
+          <MetricLabel
+            icon="leaf"
+            label="Renewable"
+            value={`${renewablePercent.toFixed(1)}%`}
+            color={INPUT_COLORS.neon}
+          />
+        </View>
+
+        <View style={styles.sectionPanel}>
+          <Text style={styles.sectionTitle}>Performance Blueprint</Text>
+          <View style={styles.rotateLayout}>
+            <View style={styles.smallPanel}>
+              <Text style={styles.panelLabel}>Solar Output</Text>
+              <Text style={styles.panelValue}>
+                {gridData.solarGenerationMw.toFixed(1)} MW
+              </Text>
+            </View>
+            <View style={styles.smallPanel}>
+              <Text style={styles.panelLabel}>Wind Output</Text>
+              <Text style={styles.panelValue}>
+                {gridData.windGenerationMw.toFixed(1)} MW
+              </Text>
+            </View>
           </View>
-          <View style={[styles.impactStatus, { borderColor: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}> 
-            <Text style={[styles.impactCondition, { color: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}>
-              {isHealthy ? "STABLE" : "CRITICAL"}
+          <View style={styles.impactRow}>
+            <View style={styles.impactStat}>
+              <Text style={styles.impactHint}>Estimated Surplus</Text>
+              <Text style={styles.impactValue}>
+                {(
+                  (gridData.currentSupply - gridData.currentDemand) *
+                  1000
+                ).toFixed(0)}{" "}
+                kWh
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.impactStatus,
+                {
+                  borderColor: isHealthy
+                    ? INPUT_COLORS.neon
+                    : INPUT_COLORS.critical,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.impactCondition,
+                  {
+                    color: isHealthy
+                      ? INPUT_COLORS.neon
+                      : INPUT_COLORS.critical,
+                  },
+                ]}
+              >
+                {isHealthy ? "STABLE" : "CRITICAL"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.panelLegacy}>
+          <Text style={styles.sectionTitle}>Forecast Snapshot</Text>
+          <View style={styles.previewRow}>
+            <Text style={styles.previewLabel}>Peak demand</Text>
+            <Text style={styles.previewValue}>
+              {(forecast.data?.summary?.peak_demand_mw ?? 0).toFixed(1)} MW
+            </Text>
+          </View>
+          <View style={styles.previewRow}>
+            <Text style={styles.previewLabel}>Avg demand</Text>
+            <Text style={styles.previewValue}>
+              {(forecast.data?.summary?.avg_demand_mw ?? 0).toFixed(1)} MW
+            </Text>
+          </View>
+          <View style={styles.previewRow}>
+            <Text style={styles.previewLabel}>Deficit hours</Text>
+            <Text style={styles.previewValue}>
+              {forecast.data?.summary?.hours_with_deficit ?? 0}h
             </Text>
           </View>
         </View>
-      </View>
 
-      <View style={styles.panelLegacy}>
-        <Text style={styles.sectionTitle}>Forecast Snapshot</Text>
-        <View style={styles.previewRow}>
-          <Text style={styles.previewLabel}>Peak demand</Text>
-          <Text style={styles.previewValue}>{(forecast.data?.summary?.peak_demand_mw ?? 0).toFixed(1)} MW</Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Interface: G-Balancer Mobile Command
+          </Text>
+          <Text style={styles.footerHint}>
+            Updated: {new Date(gridData.updatedAt).toLocaleTimeString()}
+          </Text>
         </View>
-        <View style={styles.previewRow}>
-          <Text style={styles.previewLabel}>Avg demand</Text>
-          <Text style={styles.previewValue}>{(forecast.data?.summary?.avg_demand_mw ?? 0).toFixed(1)} MW</Text>
-        </View>
-        <View style={styles.previewRow}>
-          <Text style={styles.previewLabel}>Deficit hours</Text>
-          <Text style={styles.previewValue}>{forecast.data?.summary?.hours_with_deficit ?? 0}h</Text>
-        </View>
-      </View>
-
-      <View style={styles.footer}> 
-        <Text style={styles.footerText}>Interface: G-Balancer Mobile Command</Text>
-        <Text style={styles.footerHint}>Updated: {new Date(gridData.updatedAt).toLocaleTimeString()}</Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: INPUT_COLORS.background,
+  },
   container: {
     flex: 1,
     backgroundColor: INPUT_COLORS.background,

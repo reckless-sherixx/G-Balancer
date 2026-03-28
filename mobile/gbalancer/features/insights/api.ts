@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 import type {
   AlertsResponse,
   CarbonResponse,
@@ -7,14 +5,17 @@ import type {
   InsightsSummary,
 } from '@/features/insights/types';
 
-const DEFAULT_BASE_URL =
-  Platform.OS === 'android' ? 'http://10.21.39.161:8000' : 'http://10.21.39.161:8000';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_ML_API_URL ?? DEFAULT_BASE_URL;
+const API_BASE_URL = "https://g-balancer.onrender.com";
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 async function request<T>(path: string, method: HttpMethod = 'GET'): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new Error(
+      'EXPO_PUBLIC_BACKEND_URI is undefined. Set it in mobile/gbalancer/.env and restart Expo.',
+    );
+  }
+
   const url = `${API_BASE_URL}${path}`;
   const response = await fetch(url, {
     method,

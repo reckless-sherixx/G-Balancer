@@ -6,6 +6,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -36,117 +37,129 @@ export default function FestivalsScreen() {
   const events = festivals.data?.upcoming_events ?? [];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={festivals.loading}
-          onRefresh={() => void festivals.refresh()}
-          tintColor={COLORS.green}
-          colors={[COLORS.green]}
-          progressBackgroundColor={COLORS.darkGrey}
-        />
-      }
-    >
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.black]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={festivals.loading}
+            onRefresh={() => void festivals.refresh()}
+            tintColor={COLORS.green}
+            colors={[COLORS.green]}
+            progressBackgroundColor={COLORS.darkGrey}
+          />
+        }
       >
-        <View>
-          <ThemedText style={styles.title}>Festival Outlook</ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Demand spikes over next {DAYS_AHEAD} days
-          </ThemedText>
-        </View>
-        <MaterialCommunityIcons
-          name="calendar-star"
-          size={30}
-          color={COLORS.cyan}
-        />
-      </LinearGradient>
-
-      {festivals.data?.next_high_impact_event ? (
         <LinearGradient
-          colors={[`${COLORS.red}28`, `${COLORS.red}10`]}
+          colors={[COLORS.darkGrey, COLORS.black]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.highlightCard}
+          style={styles.header}
         >
-          <ThemedText style={styles.highlightTitle}>
-            Next High Impact Event
-          </ThemedText>
-          <ThemedText style={styles.highlightName}>
-            {festivals.data.next_high_impact_event.event_name}
-          </ThemedText>
-          <ThemedText style={styles.highlightMeta}>
-            in {festivals.data.next_high_impact_event.days_until} days ·{" "}
-            {festivals.data.next_high_impact_event.demand_multiplier.toFixed(2)}
-            x demand
-          </ThemedText>
+          <View>
+            <ThemedText style={styles.title}>Festival Outlook</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Demand spikes over next {DAYS_AHEAD} days
+            </ThemedText>
+          </View>
+          <MaterialCommunityIcons
+            name="calendar-star"
+            size={30}
+            color={COLORS.cyan}
+          />
         </LinearGradient>
-      ) : null}
 
-      {isLoading ? (
-        <View style={styles.stateWrap}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <ThemedText style={styles.stateText}>Loading events...</ThemedText>
-        </View>
-      ) : null}
+        {festivals.data?.next_high_impact_event ? (
+          <LinearGradient
+            colors={[`${COLORS.red}28`, `${COLORS.red}10`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.highlightCard}
+          >
+            <ThemedText style={styles.highlightTitle}>
+              Next High Impact Event
+            </ThemedText>
+            <ThemedText style={styles.highlightName}>
+              {festivals.data.next_high_impact_event.event_name}
+            </ThemedText>
+            <ThemedText style={styles.highlightMeta}>
+              in {festivals.data.next_high_impact_event.days_until} days ·{" "}
+              {festivals.data.next_high_impact_event.demand_multiplier.toFixed(
+                2,
+              )}
+              x demand
+            </ThemedText>
+          </LinearGradient>
+        ) : null}
 
-      {!isLoading && festivals.error ? (
-        <LinearGradient
-          colors={[`${COLORS.red}22`, `${COLORS.red}10`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.errorCard, { borderColor: COLORS.red }]}
-        >
-          <ThemedText style={[styles.errorTitle, { color: COLORS.red }]}>
-            Couldn&apos;t fetch festivals
-          </ThemedText>
-          <ThemedText style={styles.errorMessage}>{festivals.error}</ThemedText>
-        </LinearGradient>
-      ) : null}
+        {isLoading ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator size="large" color={COLORS.green} />
+            <ThemedText style={styles.stateText}>Loading events...</ThemedText>
+          </View>
+        ) : null}
 
-      {!isLoading && !festivals.error ? (
-        <>
-          {events.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <MaterialCommunityIcons
-                name="calendar-check"
-                size={28}
-                color={COLORS.green}
-              />
-              <ThemedText style={styles.emptyTitle}>No major events</ThemedText>
-              <ThemedText style={styles.emptyMessage}>
-                No demand multiplier events in this window.
-              </ThemedText>
-            </View>
-          ) : (
-            events.map((event) => (
-              <EventCard
-                key={`${event.event_name}-${event.date}`}
-                event={event}
-              />
-            ))
-          )}
+        {!isLoading && festivals.error ? (
+          <LinearGradient
+            colors={[`${COLORS.red}22`, `${COLORS.red}10`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.errorCard, { borderColor: COLORS.red }]}
+          >
+            <ThemedText style={[styles.errorTitle, { color: COLORS.red }]}>
+              Couldn&apos;t fetch festivals
+            </ThemedText>
+            <ThemedText style={styles.errorMessage}>
+              {festivals.error}
+            </ThemedText>
+          </LinearGradient>
+        ) : null}
 
-          {festivals.data?.note ? (
-            <View style={styles.noteWrap}>
-              <ThemedText style={styles.noteText}>
-                {festivals.data.note}
-              </ThemedText>
-            </View>
-          ) : null}
-        </>
-      ) : null}
-    </ScrollView>
+        {!isLoading && !festivals.error ? (
+          <>
+            {events.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <MaterialCommunityIcons
+                  name="calendar-check"
+                  size={28}
+                  color={COLORS.green}
+                />
+                <ThemedText style={styles.emptyTitle}>
+                  No major events
+                </ThemedText>
+                <ThemedText style={styles.emptyMessage}>
+                  No demand multiplier events in this window.
+                </ThemedText>
+              </View>
+            ) : (
+              events.map((event) => (
+                <EventCard
+                  key={`${event.event_name}-${event.date}`}
+                  event={event}
+                />
+              ))
+            )}
+
+            {festivals.data?.note ? (
+              <View style={styles.noteWrap}>
+                <ThemedText style={styles.noteText}>
+                  {festivals.data.note}
+                </ThemedText>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.black,

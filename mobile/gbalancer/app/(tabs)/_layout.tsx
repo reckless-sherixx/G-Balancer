@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminPanelModal } from "@/components/admin/AdminPanelModal";
 import { AlertsModal } from "@/components/insights/AlertsModal";
@@ -12,7 +13,10 @@ import { useAdminSettings } from "@/features/admin/settings-context";
 import { useAlertsData, useInsightsSummary } from "@/features/insights/hooks";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-const SEVERITY_COLOR: Record<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE", string> = {
+const SEVERITY_COLOR: Record<
+  "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE",
+  string
+> = {
   CRITICAL: "#FF4444",
   HIGH: "#FF7A45",
   MEDIUM: "#FFD700",
@@ -32,7 +36,8 @@ export default function TabLayout() {
     pollIntervalMs: settings.insightsPolling ? 60_000 : undefined,
   });
 
-  const totalAlerts = alerts.data?.alert_count ?? summary.data?.alert_count ?? 0;
+  const totalAlerts =
+    alerts.data?.alert_count ?? summary.data?.alert_count ?? 0;
   const highestSeverity = summary.data?.highest_severity ?? "NONE";
   const badgeColor = SEVERITY_COLOR[highestSeverity];
 
@@ -49,16 +54,20 @@ export default function TabLayout() {
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.missionBar}>
         <MaterialCommunityIcons name="monitor" size={18} color="#00FF87" />
         <View style={styles.missionTextGroup}>
           <View style={styles.missionPill} />
           <View style={styles.missionTitleWrap}>
             <Text style={styles.missionTitle}>Mission: Grid Control</Text>
-            <Text style={[styles.missionLabel, { color: badgeColor }]}>Severity: {highestSeverity}</Text>
+            <Text style={[styles.missionLabel, { color: badgeColor }]}>
+              Severity: {highestSeverity}
+            </Text>
           </View>
-          <Text style={styles.missionSubtitle}>Live data stream from network</Text>
+          <Text style={styles.missionSubtitle}>
+            Live data stream from network
+          </Text>
         </View>
       </View>
 
@@ -110,11 +119,24 @@ export default function TabLayout() {
               </Pressable>
 
               {settings.alertsEnabled ? (
-                <Pressable style={styles.headerAlertButton} onPress={openAlerts}>
-                  <MaterialCommunityIcons name="bell-ring-outline" size={22} color="#00FF87" />
+                <Pressable
+                  style={styles.headerAlertButton}
+                  onPress={openAlerts}
+                >
+                  <MaterialCommunityIcons
+                    name="bell-ring-outline"
+                    size={22}
+                    color="#00FF87"
+                  />
                   {totalAlerts > 0 ? (
-                    <View style={[styles.badge, { backgroundColor: badgeColor }]}>
-                      <MaterialCommunityIcons name="alert" size={10} color="#0B0B0B" />
+                    <View
+                      style={[styles.badge, { backgroundColor: badgeColor }]}
+                    >
+                      <MaterialCommunityIcons
+                        name="alert"
+                        size={10}
+                        color="#0B0B0B"
+                      />
                     </View>
                   ) : null}
                 </Pressable>
@@ -128,21 +150,31 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "Overview",
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="house.fill" color={color} />
+            ),
           }}
         />
         <Tabs.Screen
           name="explore"
           options={{
             title: "Forecast",
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="paperplane.fill" color={color} />
+            ),
           }}
         />
         <Tabs.Screen
           name="actions"
           options={{
             title: "Actions",
-            tabBarIcon: ({ color }) => <IconSymbol name="chevron.left.forwardslash.chevron.right" size={28} color={color} />,
+            tabBarIcon: ({ color }) => (
+              <IconSymbol
+                name="chevron.left.forwardslash.chevron.right"
+                size={28}
+                color={color}
+              />
+            ),
           }}
         />
         <Tabs.Screen
@@ -150,7 +182,13 @@ export default function TabLayout() {
           options={{
             title: "Festivals",
             href: settings.festivalsEnabled ? undefined : null,
-            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="calendar-star" size={24} color={color} />,
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons
+                name="calendar-star"
+                size={24}
+                color={color}
+              />
+            ),
           }}
         />
         <Tabs.Screen
@@ -158,12 +196,17 @@ export default function TabLayout() {
           options={{
             title: "CO2",
             href: settings.co2Enabled ? undefined : null,
-            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="leaf" size={24} color={color} />,
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="leaf" size={24} color={color} />
+            ),
           }}
         />
       </Tabs>
 
-      <AdminPanelModal visible={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+      <AdminPanelModal
+        visible={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+      />
 
       <AlertsModal
         visible={isAlertsOpen}
@@ -173,11 +216,15 @@ export default function TabLayout() {
         alertsData={alerts.data}
         onRetry={refreshAlerts}
       />
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#070707",
+  },
   missionBar: {
     backgroundColor: "#070707",
     borderBottomWidth: 1,
