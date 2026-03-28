@@ -8,6 +8,7 @@ import {
   View,
   Text,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { useAdminSettings } from "@/features/admin/settings-context";
@@ -25,8 +26,20 @@ const COLORS = {
   grey: "#9CA3AF",
 };
 
-const MonitorCard = ({ label, value, change, icon, accent }: { label: string; value: string; change: string; icon: string; accent: string }) => (
-  <View style={[styles.monitorCard, { borderColor: accent }]}> 
+const MonitorCard = ({
+  label,
+  value,
+  change,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: string;
+  change: string;
+  icon: string;
+  accent: string;
+}) => (
+  <View style={[styles.monitorCard, { borderColor: accent }]}>
     <View style={styles.monitorHeader}>
       <MaterialCommunityIcons name={icon as any} size={18} color={accent} />
       <Text style={styles.monitorLabel}>{label}</Text>
@@ -40,7 +53,10 @@ const MonitorCard = ({ label, value, change, icon, accent }: { label: string; va
 
 export default function ForecastScreen() {
   const { settings } = useAdminSettings();
-  const forecast = useForecastData({ city: settings.city, hours: settings.forecastHours });
+  const forecast = useForecastData({
+    city: settings.city,
+    hours: settings.forecastHours,
+  });
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const nextPoint = forecast.data?.points[0];
@@ -50,8 +66,12 @@ export default function ForecastScreen() {
   const dayDemandTotal = points.reduce((sum, p) => sum + (p.demand ?? 0), 0);
   const dayDelta = (daySupplyTotal - dayDemandTotal).toFixed(1);
 
-  const nextDelta = ((nextPoint?.supply ?? 0) - (nextPoint?.demand ?? 0)).toFixed(1);
-  const sixthDelta = ((sixthPoint?.supply ?? 0) - (sixthPoint?.demand ?? 0)).toFixed(1);
+  const nextDelta = (
+    (nextPoint?.supply ?? 0) - (nextPoint?.demand ?? 0)
+  ).toFixed(1);
+  const sixthDelta = (
+    (sixthPoint?.supply ?? 0) - (sixthPoint?.demand ?? 0)
+  ).toFixed(1);
 
   const isNextSurplus = parseFloat(nextDelta) > 0;
   const isSixthSurplus = parseFloat(sixthDelta) > 0;
@@ -63,78 +83,134 @@ export default function ForecastScreen() {
   const city = forecast.data?.city ?? "Grid";
 
   return (
-    <ScrollView
-      style={styles.wrap}
-      contentContainerStyle={styles.container}
-      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
-      refreshControl={
-        <RefreshControl
-          refreshing={forecast.loading}
-          onRefresh={() => forecast.refresh()}
-          tintColor={COLORS.neon}
-          colors={[COLORS.neon]}
-          progressBackgroundColor={COLORS.panel}
-        />
-      }
-    >
-      <View style={styles.heroCard}>
-        <View style={styles.heroTextGroup}>
-          <Text style={styles.heroTitle}>Forecast Control</Text>
-          <Text style={styles.heroSubtitle}>{city} 24h Timeline</Text>
-        </View>
-        <MaterialCommunityIcons name="chart-line" size={30} color={COLORS.cyan} />
-      </View>
-
-      {forecast.loading && (
-        <View style={styles.loadingBlock}>
-          <ActivityIndicator size="large" color={COLORS.neon} />
-          <Text style={styles.loadingText}>Analyzing demand curves...</Text>
-        </View>
-      )}
-
-      {!!forecast.error && (
-        <View style={[styles.statusAlert, { borderColor: COLORS.red }]}> 
-          <Text style={[styles.alertText, { color: COLORS.red }]}>Forecast error</Text>
-          <Text style={styles.alertDetail}>{forecast.error}</Text>
-        </View>
-      )}
-
-      {!forecast.loading && !forecast.error && (
-        <>
-          <View style={styles.longGrid}>
-            <MonitorCard label="24h Delta" value={`${dayDelta} MW`} change={isDaySurplus ? "Surplus" : "Deficit"} icon="flash" accent={isDaySurplus ? COLORS.neon : COLORS.orange} />
-            <MonitorCard label="Peak Demand" value={`${peakDemand.toFixed(1)} MW`} change="max" icon="arrow-up-bold" accent={COLORS.red} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.wrap}
+        contentContainerStyle={styles.container}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        refreshControl={
+          <RefreshControl
+            refreshing={forecast.loading}
+            onRefresh={() => forecast.refresh()}
+            tintColor={COLORS.neon}
+            colors={[COLORS.neon]}
+            progressBackgroundColor={COLORS.panel}
+          />
+        }
+      >
+        <View style={styles.heroCard}>
+          <View style={styles.heroTextGroup}>
+            <Text style={styles.heroTitle}>Forecast Control</Text>
+            <Text style={styles.heroSubtitle}>{city} 24h Timeline</Text>
           </View>
+          <MaterialCommunityIcons
+            name="chart-line"
+            size={30}
+            color={COLORS.cyan}
+          />
+        </View>
 
-          <View style={styles.longGrid}>
-            <MonitorCard label="Avg Demand" value={`${avgDemand.toFixed(1)} MW`} change="trend" icon="chart-areaspline" accent={COLORS.cyan} />
-            <MonitorCard label="Min Demand" value={`${minDemand.toFixed(1)} MW`} change="floor" icon="arrow-down-bold" accent={COLORS.neon} />
+        {forecast.loading && (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator size="large" color={COLORS.neon} />
+            <Text style={styles.loadingText}>Analyzing demand curves...</Text>
           </View>
+        )}
 
-          <View style={styles.timeSlice}>
-            <View style={styles.timeCard}>
-              <Text style={styles.timeLabel}>Next 1h</Text>
-              <Text style={[styles.timeDelta, { color: isNextSurplus ? COLORS.neon : COLORS.orange }]}>{`${nextDelta} MW`}</Text>
-              <Text style={styles.timeState}>{isNextSurplus ? "Surplus window" : "Deficit window"}</Text>
+        {!!forecast.error && (
+          <View style={[styles.statusAlert, { borderColor: COLORS.red }]}>
+            <Text style={[styles.alertText, { color: COLORS.red }]}>
+              Forecast error
+            </Text>
+            <Text style={styles.alertDetail}>{forecast.error}</Text>
+          </View>
+        )}
+
+        {!forecast.loading && !forecast.error && (
+          <>
+            <View style={styles.longGrid}>
+              <MonitorCard
+                label="24h Delta"
+                value={`${dayDelta} MW`}
+                change={isDaySurplus ? "Surplus" : "Deficit"}
+                icon="flash"
+                accent={isDaySurplus ? COLORS.neon : COLORS.orange}
+              />
+              <MonitorCard
+                label="Peak Demand"
+                value={`${peakDemand.toFixed(1)} MW`}
+                change="max"
+                icon="arrow-up-bold"
+                accent={COLORS.red}
+              />
             </View>
-            <View style={styles.timeCard}>
-              <Text style={styles.timeLabel}>+6h</Text>
-              <Text style={[styles.timeDelta, { color: isSixthSurplus ? COLORS.neon : COLORS.orange }]}>{`${sixthDelta} MW`}</Text>
-              <Text style={styles.timeState}>{isSixthSurplus ? "Surplus" : "Deficit"}</Text>
-            </View>
-          </View>
 
-          <View style={styles.explainPanel}>
-            <Text style={styles.sectionTitle}>Action Threshold</Text>
-            <Text style={styles.sectionBody}>Adjust dispatch when deficit exceeds 10% for 3+ hours; maintain reserve targets in peak windows.</Text>
-          </View>
-        </>
-      )}
-    </ScrollView>
+            <View style={styles.longGrid}>
+              <MonitorCard
+                label="Avg Demand"
+                value={`${avgDemand.toFixed(1)} MW`}
+                change="trend"
+                icon="chart-areaspline"
+                accent={COLORS.cyan}
+              />
+              <MonitorCard
+                label="Min Demand"
+                value={`${minDemand.toFixed(1)} MW`}
+                change="floor"
+                icon="arrow-down-bold"
+                accent={COLORS.neon}
+              />
+            </View>
+
+            <View style={styles.timeSlice}>
+              <View style={styles.timeCard}>
+                <Text style={styles.timeLabel}>Next 1h</Text>
+                <Text
+                  style={[
+                    styles.timeDelta,
+                    { color: isNextSurplus ? COLORS.neon : COLORS.orange },
+                  ]}
+                >{`${nextDelta} MW`}</Text>
+                <Text style={styles.timeState}>
+                  {isNextSurplus ? "Surplus window" : "Deficit window"}
+                </Text>
+              </View>
+              <View style={styles.timeCard}>
+                <Text style={styles.timeLabel}>+6h</Text>
+                <Text
+                  style={[
+                    styles.timeDelta,
+                    { color: isSixthSurplus ? COLORS.neon : COLORS.orange },
+                  ]}
+                >{`${sixthDelta} MW`}</Text>
+                <Text style={styles.timeState}>
+                  {isSixthSurplus ? "Surplus" : "Deficit"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.explainPanel}>
+              <Text style={styles.sectionTitle}>Action Threshold</Text>
+              <Text style={styles.sectionBody}>
+                Adjust dispatch when deficit exceeds 10% for 3+ hours; maintain
+                reserve targets in peak windows.
+              </Text>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   wrap: {
     flex: 1,
     backgroundColor: COLORS.background,

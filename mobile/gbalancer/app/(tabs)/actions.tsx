@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -386,226 +387,238 @@ export default function ActionsScreen() {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.black]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerContent}>
-          <View>
-            <ThemedText style={styles.headerTitle}>
-              Action Recommender
-            </ThemedText>
-            <ThemedText style={styles.headerSubtitle}>
-              Grid optimization
-            </ThemedText>
-          </View>
-          <MaterialCommunityIcons
-            name="lightbulb-on"
-            size={32}
-            color={COLORS.cyan}
-          />
-        </View>
-      </LinearGradient>
-
-      {/* Input Section */}
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.grey]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.formCard}
-      >
-        <View style={styles.formHeader}>
-          <MaterialCommunityIcons name="tune" size={20} color={COLORS.cyan} />
-          <ThemedText style={styles.formTitle}>Input Parameters</ThemedText>
-        </View>
-
-        <View style={styles.inputsContainer}>
-          <InputField
-            label="Forecasted Surplus"
-            value={surplusInput}
-            onChangeText={setSurplusInput}
-            placeholder="e.g. 10.5"
-            icon="flash"
-            unit="MW"
-            error={fieldErrors.surplus}
-          />
-
-          <InputField
-            label="Battery Level"
-            value={batteryInput}
-            onChangeText={setBatteryInput}
-            placeholder="e.g. 65"
-            icon="battery"
-            unit="%"
-            error={fieldErrors.battery}
-          />
-
-          <InputField
-            label="Grid Stress"
-            value={stressInput}
-            onChangeText={setStressInput}
-            placeholder="e.g. 0.4"
-            icon="gauge"
-            unit="0-1"
-            error={fieldErrors.stress}
-          />
-        </View>
-
-        <Animated.View
-          style={[
-            styles.runButtonContainer,
-            { transform: [{ scale: buttonScaleAnim }] },
-          ]}
+        {/* Header */}
+        <LinearGradient
+          colors={[COLORS.darkGrey, COLORS.black]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
         >
-          <Pressable
-            onPress={runPrediction}
-            disabled={prediction.loading || hasValidationErrors}
-            style={styles.runButton}
-          >
-            <LinearGradient
-              colors={
-                hasValidationErrors
-                  ? [COLORS.grey, COLORS.lightGrey]
-                  : [COLORS.green, COLORS.green + "CC"]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.runButtonGradient}
-            >
-              <MaterialCommunityIcons
-                name={prediction.loading ? "loading" : "play"}
-                size={20}
-                color={COLORS.black}
-              />
-              <ThemedText style={styles.runButtonText}>
-                {prediction.loading
-                  ? "Computing..."
-                  : hasValidationErrors
-                    ? "Fix input ranges"
-                    : "Run Recommendation"}
+          <View style={styles.headerContent}>
+            <View>
+              <ThemedText style={styles.headerTitle}>
+                Action Recommender
               </ThemedText>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-      </LinearGradient>
+              <ThemedText style={styles.headerSubtitle}>
+                Grid optimization
+              </ThemedText>
+            </View>
+            <MaterialCommunityIcons
+              name="lightbulb-on"
+              size={32}
+              color={COLORS.cyan}
+            />
+          </View>
+        </LinearGradient>
 
-      {/* Loading State */}
-      {prediction.loading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <ThemedText style={styles.loaderText}>
-            Analyzing grid state...
-          </ThemedText>
-        </View>
-      )}
-
-      {/* Result State */}
-      {!!prediction.data && (
-        <ActionCard
-          action={prediction.data.action}
-          confidence={prediction.data.confidence}
-          urgency={prediction.data.urgencyScore}
-          surplus={prediction.data.surplusKwh}
-          reason={
-            prediction.data.reason || "Recommendation based on grid analysis"
-          }
-        />
-      )}
-
-      {/* Info Cards */}
-      <View style={styles.infoSection}>
+        {/* Input Section */}
         <LinearGradient
           colors={[COLORS.darkGrey, COLORS.grey]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.infoCard}
+          style={styles.formCard}
         >
-          <View style={styles.infoHeader}>
-            <MaterialCommunityIcons
-              name="information"
-              size={20}
-              color={COLORS.cyan}
+          <View style={styles.formHeader}>
+            <MaterialCommunityIcons name="tune" size={20} color={COLORS.cyan} />
+            <ThemedText style={styles.formTitle}>Input Parameters</ThemedText>
+          </View>
+
+          <View style={styles.inputsContainer}>
+            <InputField
+              label="Forecasted Surplus"
+              value={surplusInput}
+              onChangeText={setSurplusInput}
+              placeholder="e.g. 10.5"
+              icon="flash"
+              unit="MW"
+              error={fieldErrors.surplus}
             />
-            <ThemedText style={styles.infoTitle}>Actions Explained</ThemedText>
+
+            <InputField
+              label="Battery Level"
+              value={batteryInput}
+              onChangeText={setBatteryInput}
+              placeholder="e.g. 65"
+              icon="battery"
+              unit="%"
+              error={fieldErrors.battery}
+            />
+
+            <InputField
+              label="Grid Stress"
+              value={stressInput}
+              onChangeText={setStressInput}
+              placeholder="e.g. 0.4"
+              icon="gauge"
+              unit="0-1"
+              error={fieldErrors.stress}
+            />
           </View>
 
-          <View style={styles.actionExplanation}>
-            <View style={styles.explanationItem}>
-              <View
-                style={[
-                  styles.actionIndicator,
-                  { backgroundColor: ACTION_COLORS.STORE.text },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.explanationLabel}>STORE</ThemedText>
-                <ThemedText style={styles.explanationText}>
-                  Charge battery from excess supply
+          <Animated.View
+            style={[
+              styles.runButtonContainer,
+              { transform: [{ scale: buttonScaleAnim }] },
+            ]}
+          >
+            <Pressable
+              onPress={runPrediction}
+              disabled={prediction.loading || hasValidationErrors}
+              style={styles.runButton}
+            >
+              <LinearGradient
+                colors={
+                  hasValidationErrors
+                    ? [COLORS.grey, COLORS.lightGrey]
+                    : [COLORS.green, COLORS.green + "CC"]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.runButtonGradient}
+              >
+                <MaterialCommunityIcons
+                  name={prediction.loading ? "loading" : "play"}
+                  size={20}
+                  color={COLORS.black}
+                />
+                <ThemedText style={styles.runButtonText}>
+                  {prediction.loading
+                    ? "Computing..."
+                    : hasValidationErrors
+                      ? "Fix input ranges"
+                      : "Run Recommendation"}
                 </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.explanationItem}>
-              <View
-                style={[
-                  styles.actionIndicator,
-                  { backgroundColor: ACTION_COLORS.RELEASE.text },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.explanationLabel}>RELEASE</ThemedText>
-                <ThemedText style={styles.explanationText}>
-                  Discharge battery to meet demand
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.explanationItem}>
-              <View
-                style={[
-                  styles.actionIndicator,
-                  { backgroundColor: ACTION_COLORS.REDISTRIBUTE.text },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.explanationLabel}>
-                  REDISTRIBUTE
-                </ThemedText>
-                <ThemedText style={styles.explanationText}>
-                  Shift load between regions
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.explanationItem}>
-              <View
-                style={[
-                  styles.actionIndicator,
-                  { backgroundColor: ACTION_COLORS.STABLE.text },
-                ]}
-              />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.explanationLabel}>STABLE</ThemedText>
-                <ThemedText style={styles.explanationText}>
-                  Grid is balanced, no action needed
-                </ThemedText>
-              </View>
-            </View>
-          </View>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
         </LinearGradient>
-      </View>
-    </ScrollView>
+
+        {/* Loading State */}
+        {prediction.loading && (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={COLORS.green} />
+            <ThemedText style={styles.loaderText}>
+              Analyzing grid state...
+            </ThemedText>
+          </View>
+        )}
+
+        {/* Result State */}
+        {!!prediction.data && (
+          <ActionCard
+            action={prediction.data.action}
+            confidence={prediction.data.confidence}
+            urgency={prediction.data.urgencyScore}
+            surplus={prediction.data.surplusKwh}
+            reason={
+              prediction.data.reason || "Recommendation based on grid analysis"
+            }
+          />
+        )}
+
+        {/* Info Cards */}
+        <View style={styles.infoSection}>
+          <LinearGradient
+            colors={[COLORS.darkGrey, COLORS.grey]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.infoCard}
+          >
+            <View style={styles.infoHeader}>
+              <MaterialCommunityIcons
+                name="information"
+                size={20}
+                color={COLORS.cyan}
+              />
+              <ThemedText style={styles.infoTitle}>
+                Actions Explained
+              </ThemedText>
+            </View>
+
+            <View style={styles.actionExplanation}>
+              <View style={styles.explanationItem}>
+                <View
+                  style={[
+                    styles.actionIndicator,
+                    { backgroundColor: ACTION_COLORS.STORE.text },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.explanationLabel}>STORE</ThemedText>
+                  <ThemedText style={styles.explanationText}>
+                    Charge battery from excess supply
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.explanationItem}>
+                <View
+                  style={[
+                    styles.actionIndicator,
+                    { backgroundColor: ACTION_COLORS.RELEASE.text },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.explanationLabel}>
+                    RELEASE
+                  </ThemedText>
+                  <ThemedText style={styles.explanationText}>
+                    Discharge battery to meet demand
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.explanationItem}>
+                <View
+                  style={[
+                    styles.actionIndicator,
+                    { backgroundColor: ACTION_COLORS.REDISTRIBUTE.text },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.explanationLabel}>
+                    REDISTRIBUTE
+                  </ThemedText>
+                  <ThemedText style={styles.explanationText}>
+                    Shift load between regions
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={styles.explanationItem}>
+                <View
+                  style={[
+                    styles.actionIndicator,
+                    { backgroundColor: ACTION_COLORS.STABLE.text },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.explanationLabel}>
+                    STABLE
+                  </ThemedText>
+                  <ThemedText style={styles.explanationText}>
+                    Grid is balanced, no action needed
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   container: {
     paddingBottom: 28,
     backgroundColor: COLORS.black,

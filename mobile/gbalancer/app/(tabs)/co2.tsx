@@ -7,6 +7,7 @@ import {
   View,
   Text,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { useAdminSettings } from "@/features/admin/settings-context";
@@ -43,95 +44,140 @@ export default function CarbonScreen() {
   const error = carbon.error || summary.error;
 
   const health = summary.data?.highest_severity ?? "NONE";
-  const healthColor = health === "CRITICAL" ? COLORS.red : health === "HIGH" ? COLORS.amber : COLORS.neon;
+  const healthColor =
+    health === "CRITICAL"
+      ? COLORS.red
+      : health === "HIGH"
+        ? COLORS.amber
+        : COLORS.neon;
 
   return (
-    <ScrollView
-      style={styles.wrap}
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={carbon.loading || summary.loading}
-          onRefresh={() => void onRefresh()}
-          tintColor={COLORS.neon}
-          colors={[COLORS.neon]}
-          progressBackgroundColor={COLORS.panel}
-        />
-      }
-    >
-      <View style={styles.heroCard}>
-        <View>
-          <Text style={styles.title}>CO2 Command Console</Text>
-          <Text style={styles.subtitle}>Emission monitoring in real-time</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.wrap}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={carbon.loading || summary.loading}
+            onRefresh={() => void onRefresh()}
+            tintColor={COLORS.neon}
+            colors={[COLORS.neon]}
+            progressBackgroundColor={COLORS.panel}
+          />
+        }
+      >
+        <View style={styles.heroCard}>
+          <View>
+            <Text style={styles.title}>CO2 Command Console</Text>
+            <Text style={styles.subtitle}>
+              Emission monitoring in real-time
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="leaf" size={30} color={COLORS.neon} />
         </View>
-        <MaterialCommunityIcons name="leaf" size={30} color={COLORS.neon} />
-      </View>
 
-      {isLoading ? (
-        <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color={COLORS.neon} />
-          <Text style={styles.emptyText}>Gathering environmental signal…</Text>
-        </View>
-      ) : null}
-
-      {!isLoading && error ? (
-        <View style={[styles.statusBar, { borderColor: COLORS.red }]}> 
-          <MaterialCommunityIcons name="alert-circle" size={18} color={COLORS.red} />
-          <Text style={[styles.statusText, { color: COLORS.red }]}>Insights unavailable</Text>
-          <Text style={styles.message}>{error}</Text>
-        </View>
-      ) : null}
-
-      {!isLoading && !error && carbon.data ? (
-        <>
-          <View style={[styles.statusBar, { borderColor: healthColor, backgroundColor: `${healthColor}20` }]}>
-            <Text style={[styles.healthTag, { color: healthColor }]}>{`Grid Health: ${health}`}</Text>
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={COLORS.neon} />
+            <Text style={styles.emptyText}>
+              Gathering environmental signal…
+            </Text>
           </View>
+        ) : null}
 
-          <View style={styles.metricRow}>
-            <View style={[styles.metricCard, { borderColor: COLORS.neon }]}> 
-              <Text style={styles.metricTitle}>CO2 Saved</Text>
-              <Text style={[styles.metricValue, { color: COLORS.neon }]}>{carbon.data.carbon.co2_saved_kg.toFixed(1)} kg</Text>
-              <Text style={styles.metricHint}>Impact this hour</Text>
-            </View>
-            <View style={[styles.metricCard, { borderColor: COLORS.cyan }]}> 
-              <Text style={styles.metricTitle}>Carbon Credits</Text>
-              <Text style={[styles.metricValue, { color: COLORS.cyan }]}>{carbon.data.carbon.carbon_credits_earned.toFixed(2)}</Text>
-              <Text style={styles.metricHint}>~₹{carbon.data.carbon.credit_value_inr.toFixed(0)}</Text>
-            </View>
+        {!isLoading && error ? (
+          <View style={[styles.statusBar, { borderColor: COLORS.red }]}>
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={18}
+              color={COLORS.red}
+            />
+            <Text style={[styles.statusText, { color: COLORS.red }]}>
+              Insights unavailable
+            </Text>
+            <Text style={styles.message}>{error}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.metricRow}>
-            <View style={[styles.metricCard, { borderColor: COLORS.amber }]}> 
-              <Text style={styles.metricTitle}>Renewable Share</Text>
-              <Text style={[styles.metricValue, { color: COLORS.amber }]}>{carbon.data.renewable_percentage.toFixed(1)}%</Text>
-              <Text style={styles.metricHint}>Solar + Wind contribution</Text>
+        {!isLoading && !error && carbon.data ? (
+          <>
+            <View
+              style={[
+                styles.statusBar,
+                {
+                  borderColor: healthColor,
+                  backgroundColor: `${healthColor}20`,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.healthTag, { color: healthColor }]}
+              >{`Grid Health: ${health}`}</Text>
             </View>
-            <View style={[styles.metricCard, { borderColor: COLORS.neon }]}> 
-              <Text style={styles.metricTitle}>Equivalent Trees</Text>
-              <Text style={[styles.metricValue, { color: COLORS.neon }]}>{carbon.data.carbon.equivalent_trees_planted.toFixed(1)}</Text>
-              <Text style={styles.metricHint}>Ecosystem impact</Text>
-            </View>
-          </View>
 
-          <View style={styles.detailPanel}>
-            <Text style={styles.sectionTitle}>Renewable Distribution</Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Solar</Text>
-              <Text style={[styles.detailValue, { color: COLORS.amber }]}>{carbon.data.solar_mw.toFixed(2)} MW</Text>
+            <View style={styles.metricRow}>
+              <View style={[styles.metricCard, { borderColor: COLORS.neon }]}>
+                <Text style={styles.metricTitle}>CO2 Saved</Text>
+                <Text style={[styles.metricValue, { color: COLORS.neon }]}>
+                  {carbon.data.carbon.co2_saved_kg.toFixed(1)} kg
+                </Text>
+                <Text style={styles.metricHint}>Impact this hour</Text>
+              </View>
+              <View style={[styles.metricCard, { borderColor: COLORS.cyan }]}>
+                <Text style={styles.metricTitle}>Carbon Credits</Text>
+                <Text style={[styles.metricValue, { color: COLORS.cyan }]}>
+                  {carbon.data.carbon.carbon_credits_earned.toFixed(2)}
+                </Text>
+                <Text style={styles.metricHint}>
+                  ~₹{carbon.data.carbon.credit_value_inr.toFixed(0)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Wind</Text>
-              <Text style={[styles.detailValue, { color: COLORS.cyan }]}>{carbon.data.wind_mw.toFixed(2)} MW</Text>
+
+            <View style={styles.metricRow}>
+              <View style={[styles.metricCard, { borderColor: COLORS.amber }]}>
+                <Text style={styles.metricTitle}>Renewable Share</Text>
+                <Text style={[styles.metricValue, { color: COLORS.amber }]}>
+                  {carbon.data.renewable_percentage.toFixed(1)}%
+                </Text>
+                <Text style={styles.metricHint}>Solar + Wind contribution</Text>
+              </View>
+              <View style={[styles.metricCard, { borderColor: COLORS.neon }]}>
+                <Text style={styles.metricTitle}>Equivalent Trees</Text>
+                <Text style={[styles.metricValue, { color: COLORS.neon }]}>
+                  {carbon.data.carbon.equivalent_trees_planted.toFixed(1)}
+                </Text>
+                <Text style={styles.metricHint}>Ecosystem impact</Text>
+              </View>
             </View>
-          </View>
-        </>
-      ) : null}
-    </ScrollView>
+
+            <View style={styles.detailPanel}>
+              <Text style={styles.sectionTitle}>Renewable Distribution</Text>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Solar</Text>
+                <Text style={[styles.detailValue, { color: COLORS.amber }]}>
+                  {carbon.data.solar_mw.toFixed(2)} MW
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Wind</Text>
+                <Text style={[styles.detailValue, { color: COLORS.cyan }]}>
+                  {carbon.data.wind_mw.toFixed(2)} MW
+                </Text>
+              </View>
+            </View>
+          </>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   wrap: {
     flex: 1,
     backgroundColor: COLORS.background,

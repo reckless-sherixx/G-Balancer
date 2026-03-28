@@ -18,10 +18,7 @@ import {
 // 
 // iOS Simulator can reach 10.21.39.161 or localhost
 // Physical device (if on same WiFi) can reach 10.21.39.161
-const DEFAULT_BASE_URL =
-  Platform.OS === 'android' 
-    ? 'http://10.21.39.161:8000'           // ✅ Android Emulator special IP
-    : 'http://10.21.39.161:8000';      // iOS or physical device
+const DEFAULT_BASE_URL = 'https://g-balancer.onrender.com';      // iOS or physical device
 
 console.log(`📱 Platform: ${Platform.OS}`);
 console.log(`🌐 API Base URL: ${DEFAULT_BASE_URL}`);
