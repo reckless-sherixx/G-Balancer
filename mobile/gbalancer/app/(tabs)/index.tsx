@@ -13,6 +13,8 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { useGridStatusData, useForecastData } from "@/features/grid/hooks";
+
 const { width } = Dimensions.get("window");
 
 // ===== COLOR THEME =====
@@ -128,10 +130,8 @@ const EnergyBar: React.FC<EnergyBarProps> = ({ label, percentage, color }) => {
 // ===== MAIN COMPONENT =====
 
 export default function HomeScreen() {
-  const [gridData, setGridData] = useState<GridStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<string>("--:--");
+  const gridStatus = useGridStatusData();
+  const forecast = useForecastData();
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   // Pulse animation for status indicator
@@ -152,48 +152,7 @@ export default function HomeScreen() {
     ).start();
   }, []);
 
-  const fetchGridStatus = async () => {
-    try {
-      console.log("📡 Fetching grid status...");
-      const response = await fetch("http://10.21.39.161:8000/simulate");
-      const data = await response.json();
-
-      const transformedData: GridStatus = {
-        battery_level_pct: data.battery_percentage || 50,
-        status: "HEALTHY",
-        supply_mw: data.total_supply || 0,
-        demand_mw: data.demand || 0,
-        solar_mw: data.solar || 0,
-        wind_mw: data.wind || 0,
-        renewable_percentage: Math.round(
-          (((data.solar || 0) + (data.wind || 0)) / (data.total_supply || 1)) *
-            100,
-        ),
-      };
-
-      setGridData(transformedData);
-      setLastUpdate(new Date().toLocaleTimeString());
-      console.log("✅ Grid data updated");
-    } catch (error) {
-      console.error("❌ Error fetching grid:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchGridStatus();
-    const interval = setInterval(fetchGridStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchGridStatus();
-  };
-
-  if (loading) {
+  if (gridStatus.loading && !gridStatus.data) {
     return (
       <View style={styles.container}>
         <View style={styles.loaderContainer}>
@@ -204,7 +163,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (!gridData) {
+  if (gridStatus.error && !gridStatus.data) {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
@@ -214,21 +173,38 @@ export default function HomeScreen() {
             color={COLORS.red}
           />
           <Text style={styles.errorTitle}>Connection Error</Text>
-          <Text style={styles.errorMessage}>Unable to fetch grid data</Text>
+          <Text style={styles.errorMessage}>{gridStatus.error}</Text>
         </View>
       </View>
     );
   }
 
-  const balanceStatus = gridData.supply_mw >= gridData.demand_mw;
+  const gridData = gridStatus.data;
+  if (!gridData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={48}
+            color={COLORS.red}
+          />
+          <Text style={styles.errorTitle}>No Data</Text>
+          <Text style={styles.errorMessage}>Grid data unavailable</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const balanceStatus = gridData.currentSupply >= gridData.currentDemand;
 
   return (
     <ScrollView
       style={styles.container}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
+          refreshing={gridStatus.loading}
+          onRefresh={() => gridStatus.refresh()}
           tintColor={COLORS.green}
         />
       }
@@ -264,7 +240,9 @@ export default function HomeScreen() {
             </Text>
           </Animated.View>
         </View>
-        <Text style={styles.updateText}>Updated: {lastUpdate}</Text>
+        <Text style={styles.updateText}>
+          Updated: {new Date(gridData.updatedAt).toLocaleTimeString()}
+        </Text>
       </LinearGradient>
 
       {/* Battery Status Card */}
@@ -290,7 +268,7 @@ export default function HomeScreen() {
           <View style={styles.batteryGaugeWrapper}>
             <View style={styles.batteryGauge}>
               <Text style={[styles.batteryPercent, { color: COLORS.green }]}>
-                {gridData.battery_level_pct.toFixed(1)}%
+                {gridData.batteryLevelPct.toFixed(1)}%
               </Text>
             </View>
             <View style={styles.batteryInfoCol}>
@@ -309,7 +287,7 @@ export default function HomeScreen() {
 
           <EnergyBar
             label="Storage Level"
-            percentage={gridData.battery_level_pct}
+            percentage={gridData.batteryLevelPct}
             color={COLORS.green}
           />
         </LinearGradient>
@@ -322,14 +300,14 @@ export default function HomeScreen() {
           <StatBox
             icon="power-socket"
             label="Supply"
-            value={gridData.supply_mw.toFixed(1)}
+            value={gridData.currentSupply.toFixed(1)}
             unit="MW"
             color={COLORS.cyan}
           />
           <StatBox
             icon="lightning-bolt-outline"
             label="Demand"
-            value={gridData.demand_mw.toFixed(1)}
+            value={gridData.currentDemand.toFixed(1)}
             unit="MW"
             color={COLORS.yellow}
           />
@@ -365,7 +343,9 @@ export default function HomeScreen() {
                 {balanceStatus ? "Grid Surplus" : "Grid Deficit"}
               </Text>
               <Text style={styles.balanceValue}>
-                {Math.abs(gridData.supply_mw - gridData.demand_mw).toFixed(1)}{" "}
+                {Math.abs(
+                  gridData.currentSupply - gridData.currentDemand,
+                ).toFixed(1)}{" "}
                 MW
               </Text>
             </View>
@@ -389,7 +369,7 @@ export default function HomeScreen() {
               color={COLORS.yellow}
             />
             <Text style={styles.renewableValue}>
-              {gridData.solar_mw.toFixed(1)}
+              {gridData.solarGenerationMw.toFixed(1)}
             </Text>
             <Text style={styles.renewableLabel}>Solar MW</Text>
           </LinearGradient>
@@ -406,7 +386,7 @@ export default function HomeScreen() {
               color={COLORS.cyan}
             />
             <Text style={styles.renewableValue}>
-              {gridData.wind_mw.toFixed(1)}
+              {gridData.windGenerationMw.toFixed(1)}
             </Text>
             <Text style={styles.renewableLabel}>Wind MW</Text>
           </LinearGradient>
@@ -421,17 +401,43 @@ export default function HomeScreen() {
         >
           <View style={styles.greenEnergyHeader}>
             <View>
-              <Text style={styles.greenEnergyLabel}>Clean Energy Ratio</Text>
-              <Text style={[styles.greenEnergyValue, { color: COLORS.green }]}>
-                {gridData.renewable_percentage}%
+              <Text style={styles.greenEnergyLabel}>Current Surplus</Text>
+              <Text
+                style={[
+                  styles.greenEnergyValue,
+                  {
+                    color:
+                      gridData.currentSupply > gridData.currentDemand
+                        ? COLORS.green
+                        : COLORS.red,
+                  },
+                ]}
+              >
+                {(
+                  (gridData.currentSupply - gridData.currentDemand) *
+                  1000
+                ).toFixed(1)}{" "}
+                kWh
               </Text>
             </View>
-            <Text style={styles.greenEnergyEmoji}>🌱</Text>
+            <Text style={styles.greenEnergyEmoji}>
+              {gridData.currentSupply > gridData.currentDemand ? "⚡" : "⚠️"}
+            </Text>
           </View>
           <EnergyBar
-            label="Renewable Mix"
-            percentage={gridData.renewable_percentage}
-            color={COLORS.green}
+            label="Grid Balance"
+            percentage={Math.min(
+              Math.max(
+                ((gridData.currentSupply - gridData.currentDemand) / 10) * 100,
+                0,
+              ),
+              100,
+            )}
+            color={
+              gridData.currentSupply > gridData.currentDemand
+                ? COLORS.green
+                : COLORS.red
+            }
           />
         </LinearGradient>
       </View>
@@ -446,9 +452,9 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.metricCard}
           >
-            <Text style={styles.metricLabel}>Grid Frequency</Text>
+            <Text style={styles.metricLabel}>Peak Demand</Text>
             <Text style={[styles.metricValue, { color: COLORS.green }]}>
-              50.0 Hz
+              {(forecast.data?.summary?.peak_demand_mw ?? 0).toFixed(1)} MW
             </Text>
           </LinearGradient>
 
@@ -458,9 +464,9 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.metricCard}
           >
-            <Text style={styles.metricLabel}>Voltage</Text>
+            <Text style={styles.metricLabel}>Avg Demand</Text>
             <Text style={[styles.metricValue, { color: COLORS.cyan }]}>
-              230V
+              {(forecast.data?.summary?.avg_demand_mw ?? 0).toFixed(1)} MW
             </Text>
           </LinearGradient>
 
@@ -470,9 +476,9 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.metricCard}
           >
-            <Text style={styles.metricLabel}>Efficiency</Text>
+            <Text style={styles.metricLabel}>Deficit Hours</Text>
             <Text style={[styles.metricValue, { color: COLORS.yellow }]}>
-              94.5%
+              {forecast.data?.summary?.hours_with_deficit ?? 0}h
             </Text>
           </LinearGradient>
 
@@ -482,9 +488,9 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.metricCard}
           >
-            <Text style={styles.metricLabel}>Active Nodes</Text>
+            <Text style={styles.metricLabel}>Surplus Hours</Text>
             <Text style={[styles.metricValue, { color: COLORS.green }]}>
-              1,248
+              {forecast.data?.summary?.hours_with_surplus ?? 0}h
             </Text>
           </LinearGradient>
         </View>

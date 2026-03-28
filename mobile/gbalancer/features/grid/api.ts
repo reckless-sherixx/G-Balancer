@@ -41,25 +41,66 @@ function asString(value: unknown, fallback = ''): string {
 function normalizeForecastPoint(input: unknown): ForecastPoint {
   const row = (input ?? {}) as JsonRecord;
 
+  // Extract renewable generation (solar + wind)
+  const solar = asNumber(row.predicted_solar_mw ?? row.predicted_solar);
+  const wind = asNumber(row.predicted_wind_mw ?? row.predicted_wind);
+  const supply = solar + wind;
+  
+  const demand = asNumber(row.predicted_demand_mw ?? row.demand ?? row.predicted_demand);
+
   return {
     timestamp: asString(row.timestamp ?? row.time, new Date().toISOString()),
-    supply: asNumber(row.supply ?? row.predicted_supply),
-    demand: asNumber(row.demand ?? row.predicted_demand),
+    supply,
+    demand,
   };
 }
 
 function normalizeForecastResponse(payload: unknown): ForecastResponse {
   console.log('   📊 Normalizing forecast response...');
   const raw = (payload ?? {}) as JsonRecord;
-  const pointsRaw = Array.isArray(raw.points) ? raw.points : [];
+  
+  // New format: { hourly: [...], summary: {...}, city: "...", generated_at: "..." }
+  const hourlyData = Array.isArray(raw.hourly) ? raw.hourly : [];
+  const pointsRaw = Array.isArray(raw.points) ? raw.points : hourlyData;
+  
   console.log(`      Raw points: ${pointsRaw.length}`);
+  console.log(`      City: ${raw.city ?? 'Unknown'}`);
+  
+  // Extract and preserve summary data
+  const rawSummary = (raw.summary ?? {}) as JsonRecord;
+  const summary = {
+    peak_demand_mw: asNumber(rawSummary.peak_demand_mw),
+    min_demand_mw: asNumber(rawSummary.min_demand_mw),
+    avg_demand_mw: asNumber(rawSummary.avg_demand_mw),
+    hours_with_surplus: asNumber(rawSummary.hours_with_surplus),
+    hours_with_deficit: asNumber(rawSummary.hours_with_deficit),
+    critical_hours: asNumber(rawSummary.critical_hours),
+  };
+  
+  if (rawSummary) {
+    console.log(`      Peak demand: ${summary.peak_demand_mw} MW`);
+    console.log(`      Avg demand: ${summary.avg_demand_mw} MW`);
+    console.log(`      Deficit hours: ${summary.hours_with_deficit}`);
+  }
 
   if (pointsRaw.length) {
+    const points = pointsRaw.map(normalizeForecastPoint);
     const result = {
       horizonHours: asNumber(raw.horizonHours ?? raw.horizon_hours ?? pointsRaw.length, 24),
-      points: pointsRaw.map(normalizeForecastPoint),
+      points,
+      summary: Object.values(summary).some(v => v !== 0) ? summary : undefined,
+      city: asString(raw.city, 'Grid'),
+      generatedAt: asString(raw.generated_at ?? raw.generatedAt, new Date().toISOString()),
     };
     console.log(`      ✅ Parsed ${result.points.length} forecast points`);
+    console.log(`      ✅ Summary: peak=${summary.peak_demand_mw}, avg=${summary.avg_demand_mw}`);
+    
+    // Log net balance for first few points
+    points.slice(0, 3).forEach((p, i) => {
+      const balance = p.supply - p.demand;
+      console.log(`      Point ${i}: Supply=${p.supply.toFixed(2)}, Demand=${p.demand.toFixed(2)}, Net=${balance.toFixed(2)}`);
+    });
+    
     return result;
   }
 
@@ -83,6 +124,8 @@ function normalizeForecastResponse(payload: unknown): ForecastResponse {
   const result = {
     horizonHours: asNumber(raw.horizonHours ?? raw.horizon_hours ?? convertedPoints.length, 24),
     points: convertedPoints,
+    city: asString(raw.city, 'Grid'),
+    generatedAt: asString(raw.generated_at ?? raw.generatedAt, new Date().toISOString()),
   };
   console.log(`      ✅ Converted to ${result.points.length} forecast points`);
   return result;
@@ -92,19 +135,54 @@ function normalizeGridStatus(payload: unknown): GridStatusResponse {
   console.log('   📡 Normalizing grid status response...');
   const raw = (payload ?? {}) as JsonRecord;
 
+  // Map GridState schema fields to GridStatusResponse
+  // GridState has: grid_status, battery_percentage, total_supply_mw, current_demand_mw, solar_generation_mw, wind_generation_mw
+  const batteryPct = asNumber(raw.battery_percentage ?? raw.battery_level_pct ?? raw.batteryLevelPct);
+  const supplyMw = asNumber(raw.total_supply_mw ?? raw.currentSupply ?? raw.current_supply);
+  const demandMw = asNumber(raw.current_demand_mw ?? raw.currentDemand ?? raw.current_demand);
+  const netBalanceMw = asNumber(raw.net_balance_mw ?? (supplyMw - demandMw));
+  const solarMw = asNumber(raw.solar_generation_mw ?? raw.solarGenerationMw ?? 0);
+  const windMw = asNumber(raw.wind_generation_mw ?? raw.windGenerationMw ?? 0);
+  const conventionalMw = asNumber(raw.conventional_generation_mw ?? raw.conventionalGenerationMw ?? 0);
+  
+  // Map grid_status enum to friendly status
+  const gridStatusRaw = asString(raw.grid_status, 'normal').toLowerCase();
+  let status: GridStatusResponse['status'] = 'HEALTHY';
+  if (gridStatusRaw === 'critical') status = 'CRITICAL';
+  else if (gridStatusRaw === 'warning') status = 'WARNING';
+  else if (gridStatusRaw === 'surplus') status = 'HEALTHY';
+  else status = 'HEALTHY';
+
+  // Generate message based on status and conditions
+  let message = asString(raw.action_description, '');
+  if (!message) {
+    if (status === 'CRITICAL') {
+      message = `Battery critically low at ${batteryPct.toFixed(1)}%`;
+    } else if (status === 'WARNING') {
+      message = `Grid warning: Supply ${supplyMw.toFixed(1)}MW vs Demand ${demandMw.toFixed(1)}MW`;
+    } else {
+      message = netBalanceMw > 0 ? `Grid surplus: ${netBalanceMw.toFixed(1)}MW` : `Grid deficit: ${Math.abs(netBalanceMw).toFixed(1)}MW`;
+    }
+  }
+
   const result = {
-    status: asString(raw.status, 'HEALTHY') as GridStatusResponse['status'],
-    message: asString(raw.message, ''),
-    batteryLevelPct: asNumber(raw.battery_level_pct ?? raw.batteryLevelPct),
-    surplusKwh: asNumber(raw.surplus_kwh ?? raw.surplusKwh),
-    currentSupply: asNumber(raw.currentSupply ?? raw.current_supply),
-    currentDemand: asNumber(raw.currentDemand ?? raw.current_demand),
-    updatedAt: asString(raw.updatedAt ?? raw.updated_at, new Date().toISOString()),
+    status,
+    message,
+    batteryLevelPct: batteryPct,
+    surplusKwh: netBalanceMw * 1000, // Convert MW to kWh (approximation)
+    currentSupply: supplyMw,
+    currentDemand: demandMw,
+    solarGenerationMw: solarMw,
+    windGenerationMw: windMw,
+    conventionalGenerationMw: conventionalMw,
+    updatedAt: asString(raw.timestamp ?? raw.updatedAt ?? raw.updated_at, new Date().toISOString()),
   };
   
   console.log(`      Status: ${result.status}`);
   console.log(`      Battery: ${result.batteryLevelPct.toFixed(1)}%`);
-  console.log(`      Supply: ${result.currentSupply.toFixed(2)}, Demand: ${result.currentDemand.toFixed(2)}`);
+  console.log(`      Supply: ${result.currentSupply.toFixed(2)}MW, Demand: ${result.currentDemand.toFixed(2)}MW`);
+  console.log(`      Solar: ${result.solarGenerationMw.toFixed(2)}MW, Wind: ${result.windGenerationMw.toFixed(2)}MW`);
+  console.log(`      Net Balance: ${netBalanceMw.toFixed(2)}MW`);
   
   return result;
 }
@@ -145,13 +223,26 @@ function buildPredictBody(input: PredictRequest) {
     return baseDemand + dailyEffect + stressEffect - input.forecastedSurplus * 0.05;
   });
 
-  return {
+  // Create battery array matching demand length
+  const battery = Array.from({ length: 24 }, () => input.batteryLevelPct);
+
+  const body = {
     solar_output_kwh: solar,
     wind_output_kwh: wind,
     demand_kwh: demand,
+    battery_pct: battery,
     battery_level_pct: input.batteryLevelPct,
     forecast_horizon_hours: 6,
   };
+
+  console.log('   ✅ Built prediction body:');
+  console.log(`      Solar hours: ${solar.length} points`);
+  console.log(`      Wind hours: ${wind.length} points`);
+  console.log(`      Demand hours: ${demand.length} points`);
+  console.log(`      Battery hours: ${battery.length} points`);
+  console.log(`      First hour - Solar: ${solar[0].toFixed(2)}, Wind: ${wind[0].toFixed(2)}, Demand: ${demand[0].toFixed(2)}`);
+
+  return body;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -183,16 +274,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-export async function getForecast(): Promise<ForecastResponse> {
+type ForecastQueryOptions = {
+  city?: string;
+  hours?: number;
+};
+
+export async function getForecast(options?: ForecastQueryOptions): Promise<ForecastResponse> {
   // Call the backend /forecast endpoint (POST or GET depending on backend setup)
   // For now, we'll use the mobile-friendly /forecast GET endpoint if available,
   // otherwise construct a forecast from weather + predictions
   console.log('📊 getForecast() called');
-  console.log(`   Endpoint: ${API_BASE_URL}/forecast`);
+  const params = new URLSearchParams();
+  if (options?.city?.trim()) {
+    params.append('city', options.city.trim());
+  }
+  if (typeof options?.hours === 'number' && Number.isFinite(options.hours)) {
+    params.append('hours', String(Math.max(1, Math.min(168, Math.floor(options.hours)))));
+  }
+
+  const forecastPath = params.toString() ? `/forecast?${params.toString()}` : '/forecast';
+
+  console.log(`   Endpoint: ${API_BASE_URL}${forecastPath}`);
   
   try {
     console.log('   Attempting to fetch /forecast...');
-    const payload = await request<unknown>('/forecast');
+  const payload = await request<unknown>(forecastPath);
     console.log('   ✅ /forecast successful');
     const result = normalizeForecastResponse(payload);
     console.log(`   ✅ Normalized forecast: ${result.points.length} points`);
@@ -231,39 +337,19 @@ export async function getForecast(): Promise<ForecastResponse> {
 
 export async function getGridStatus(): Promise<GridStatusResponse> {
   console.log('🏠 getGridStatus() called');
-  console.log(`   Endpoint: ${API_BASE_URL}/simulate + ${API_BASE_URL}/grid-status`);
+  console.log(`   Endpoint: ${API_BASE_URL}/grid/state/latest`);
   
   try {
-    console.log('   Step 1: Fetching simulation data...');
-    const simulation = await request<SimulateResponse>('/simulate');
-    const currentSupply = simulation.total_supply_kwh.at(-1) ?? 0;
-    const currentDemand = simulation.demand_kwh.at(-1) ?? 0;
-    const batteryLevelPct = simulation.battery_pct.at(-1) ?? 0;
-    console.log(`   ✅ Simulation received`);
-    console.log(`      Supply: ${currentSupply.toFixed(2)} kWh`);
-    console.log(`      Demand: ${currentDemand.toFixed(2)} kWh`);
-    console.log(`      Battery: ${batteryLevelPct.toFixed(1)}%`);
+    console.log('   Step 1: Fetching grid state...');
+    const payload = await request<unknown>('/grid/state/latest');
+    console.log('   ✅ Grid state received');
 
-    console.log('   Step 2: Posting to /grid-status...');
-    const payload = await request<unknown>('/grid-status', {
-      method: 'POST',
-      body: JSON.stringify({
-        battery_level_pct: batteryLevelPct,
-        current_supply_kwh: currentSupply,
-        current_demand_kwh: currentDemand,
-      }),
-    });
-    console.log('   ✅ /grid-status response received');
-
-    const result = normalizeGridStatus({
-      ...(payload as JsonRecord),
-      currentSupply,
-      currentDemand,
-      battery_level_pct: batteryLevelPct,
-      updated_at: new Date().toISOString(),
-    });
+    const result = normalizeGridStatus(payload);
     
     console.log(`   ✅ Normalized grid status: ${result.status}`);
+    console.log(`      Battery: ${result.batteryLevelPct.toFixed(1)}%`);
+    console.log(`      Supply: ${result.currentSupply.toFixed(2)} MW`);
+    console.log(`      Demand: ${result.currentDemand.toFixed(2)} MW`);
     console.log(`      Message: ${result.message}`);
     return result;
   } catch (error) {
@@ -274,33 +360,35 @@ export async function getGridStatus(): Promise<GridStatusResponse> {
 
 export async function getPrediction(input: PredictRequest): Promise<PredictResponse> {
   console.log('🤖 getPrediction() called');
-  console.log(`   Grid Stress: ${input.gridStress}`);
-  console.log(`   Forecasted Surplus: ${input.forecastedSurplus}`);
-  console.log(`   Battery Level: ${input.batteryLevelPct}%`);
+  console.log(`   Input - Grid Stress: ${input.gridStress}, Forecasted Surplus: ${input.forecastedSurplus}, Battery: ${input.batteryLevelPct}%`);
   
   try {
     console.log('   Step 1: Building predict body...');
     const body = buildPredictBody(input);
-    console.log(`   ✅ Built body with ${body.solar_output_kwh.length} hours of data`);
-    console.log(`      Solar points: ${body.solar_output_kwh.length}`);
-    console.log(`      Wind points: ${body.wind_output_kwh.length}`);
-    console.log(`      Demand points: ${body.demand_kwh.length}`);
+    console.log(`   ✅ Built body successfully`);
 
-    console.log('   Step 2: Posting to /predict endpoint...');
+    console.log('   Step 2: Serializing body to JSON...');
+    const jsonBody = JSON.stringify(body);
+    console.log(`   ✅ JSON serialized (${jsonBody.length} bytes)`);
+
+    console.log('   Step 3: Posting to /predict endpoint...');
     const payload = await request<unknown>('/predict', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: jsonBody,
     });
     console.log('   ✅ /predict response received');
 
     const result = normalizePredictResponse(payload);
-    console.log(`   ✅ Normalized prediction`);
+    console.log(`   ✅ Prediction complete`);
     console.log(`      Action: ${result.action}`);
     console.log(`      Confidence: ${(result.confidence * 100).toFixed(0)}%`);
     console.log(`      Urgency: ${result.urgencyScore}`);
     return result;
   } catch (error) {
-    console.error('   ❌ getPrediction failed:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('   ❌ getPrediction failed:');
+    console.error(`      Error: ${errorMsg}`);
+    console.error(`      Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
     throw error;
   }
 }

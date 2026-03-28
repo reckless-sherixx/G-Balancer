@@ -3,6 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { getForecast, getGridStatus, getPrediction } from '@/features/grid/api';
 import { type ForecastResponse, type GridStatusResponse, type PredictRequest, type PredictResponse } from '@/features/grid/types';
 
+type ForecastOptions = {
+  city?: string;
+  hours?: number;
+};
+
 type AsyncState<T> = {
   data: T | null;
   loading: boolean;
@@ -45,8 +50,12 @@ function useAsyncData<T>(loader: () => Promise<T>, immediate = true) {
   };
 }
 
-export function useForecastData() {
-  return useAsyncData<ForecastResponse>(getForecast);
+export function useForecastData(options?: ForecastOptions) {
+  const loader = useCallback(
+    () => getForecast({ city: options?.city, hours: options?.hours }),
+    [options?.city, options?.hours],
+  );
+  return useAsyncData<ForecastResponse>(loader);
 }
 
 export function useGridStatusData() {

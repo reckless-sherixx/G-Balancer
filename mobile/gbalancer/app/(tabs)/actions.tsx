@@ -1,16 +1,289 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { ActionBadge } from '@/components/grid/action-badge';
-import { MetricCard } from '@/components/grid/metric-card';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { usePredictionData } from '@/features/grid/hooks';
+import { ThemedText } from "@/components/themed-text";
+import { usePredictionData } from "@/features/grid/hooks";
+
+const { width } = Dimensions.get("window");
+
+const COLORS = {
+  black: "#0B0B0B",
+  darkGrey: "#1A1A1A",
+  grey: "#2A2A2A",
+  lightGrey: "#3A3A3A",
+  green: "#00FF41",
+  cyan: "#00F0FF",
+  white: "#FFFFFF",
+  red: "#FF4444",
+  yellow: "#FFD700",
+};
+
+const ACTION_COLORS: Record<
+  string,
+  { bg: string; text: string; icon: string }
+> = {
+  STORE: { bg: COLORS.cyan + "30", text: COLORS.cyan, icon: "battery-plus" },
+  RELEASE: { bg: COLORS.red + "30", text: COLORS.red, icon: "flash" },
+  REDISTRIBUTE: {
+    bg: COLORS.yellow + "30",
+    text: COLORS.yellow,
+    icon: "shuffle",
+  },
+  STABLE: { bg: COLORS.green + "30", text: COLORS.green, icon: "check-circle" },
+};
+
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  icon: string;
+  unit: string;
+}
+
+const InputField: React.FC<InputFieldProps> = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  icon,
+  unit,
+}) => {
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  const handleFocus = () => {
+    Animated.timing(focusAnim, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.ease,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleBlur = () => {
+    Animated.timing(focusAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.ease,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [COLORS.grey, COLORS.green],
+  });
+
+  return (
+    <View style={styles.inputField}>
+      <View style={styles.inputHeader}>
+        <View style={styles.inputLabel}>
+          <MaterialCommunityIcons
+            name={icon as any}
+            size={16}
+            color={COLORS.cyan}
+          />
+          <ThemedText style={styles.inputLabelText}>{label}</ThemedText>
+        </View>
+        <ThemedText style={styles.inputUnit}>{unit}</ThemedText>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.inputWrapper,
+          {
+            borderColor: borderColor as any,
+          },
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          keyboardType="decimal-pad"
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.lightGrey}
+        />
+      </Animated.View>
+    </View>
+  );
+};
+
+interface ActionCardProps {
+  action: string;
+  confidence: number;
+  urgency: number;
+  surplus: number;
+  reason: string;
+}
+
+const ActionCard: React.FC<ActionCardProps> = ({
+  action,
+  confidence,
+  urgency,
+  surplus,
+  reason,
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [action]);
+
+  const colors = ACTION_COLORS[action] || ACTION_COLORS.STABLE;
+
+  return (
+    <Animated.View
+      style={[
+        styles.actionCardWrapper,
+        {
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[colors.bg, colors.bg + "60"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.actionCard, { borderColor: colors.text }]}
+      >
+        <View style={styles.actionBadge}>
+          <MaterialCommunityIcons
+            name={colors.icon as any}
+            size={28}
+            color={colors.text}
+          />
+          <ThemedText style={[styles.actionText, { color: colors.text }]}>
+            {action}
+          </ThemedText>
+        </View>
+
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Confidence</ThemedText>
+            <View style={styles.metricBarBg}>
+              <View
+                style={[
+                  styles.metricBarFill,
+                  {
+                    width: `${confidence * 100}%`,
+                    backgroundColor: COLORS.green,
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText style={styles.metricValue}>
+              {Math.round(confidence * 100)}%
+            </ThemedText>
+          </View>
+
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Urgency</ThemedText>
+            <View style={styles.metricBarBg}>
+              <View
+                style={[
+                  styles.metricBarFill,
+                  {
+                    width: `${urgency * 100}%`,
+                    backgroundColor:
+                      urgency > 0.7
+                        ? COLORS.red
+                        : urgency > 0.4
+                          ? COLORS.yellow
+                          : COLORS.green,
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText style={styles.metricValue}>
+              {Math.round(urgency * 100)}%
+            </ThemedText>
+          </View>
+
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Surplus (kWh)</ThemedText>
+            <View
+              style={[
+                styles.surplusBox,
+                {
+                  backgroundColor:
+                    surplus > 0 ? COLORS.green + "20" : COLORS.red + "20",
+                  borderColor: surplus > 0 ? COLORS.green : COLORS.red,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.surplusValue,
+                  {
+                    color: surplus > 0 ? COLORS.green : COLORS.red,
+                  },
+                ]}
+              >
+                {surplus > 0 ? "+" : ""}
+                {surplus.toFixed(1)}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {reason && (
+          <LinearGradient
+            colors={[COLORS.black + "40", COLORS.black + "20"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.reasonCard}
+          >
+            <View style={styles.reasonHeader}>
+              <MaterialCommunityIcons
+                name="lightbulb"
+                size={16}
+                color={COLORS.cyan}
+              />
+              <ThemedText style={styles.reasonTitle}>Rationale</ThemedText>
+            </View>
+            <ThemedText style={styles.reasonText}>{reason}</ThemedText>
+          </LinearGradient>
+        )}
+      </LinearGradient>
+    </Animated.View>
+  );
+};
 
 export default function ActionsScreen() {
-  const [surplusInput, setSurplusInput] = useState('12.0');
-  const [batteryInput, setBatteryInput] = useState('62');
-  const [stressInput, setStressInput] = useState('0.36');
+  const [surplusInput, setSurplusInput] = useState("12.0");
+  const [batteryInput, setBatteryInput] = useState("62");
+  const [stressInput, setStressInput] = useState("0.36");
+  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
 
   const prediction = usePredictionData({
     forecastedSurplus: 12,
@@ -28,171 +301,532 @@ export default function ActionsScreen() {
   );
 
   const runPrediction = async () => {
+    Animated.sequence([
+      Animated.timing(buttonScaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     await prediction.predict(parsedPayload);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <ThemedView style={styles.topCard}>
-        <ThemedText type="title">Action Recommender</ThemedText>
-        <ThemedText>
-          Run the recommender to choose STORE, RELEASE, REDISTRIBUTE, or STABLE for the current grid state.
-        </ThemedText>
-      </ThemedView>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <LinearGradient
+        colors={[COLORS.darkGrey, COLORS.black]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View>
+            <ThemedText style={styles.headerTitle}>
+              Action Recommender
+            </ThemedText>
+            <ThemedText style={styles.headerSubtitle}>
+              Grid optimization
+            </ThemedText>
+          </View>
+          <MaterialCommunityIcons
+            name="lightbulb-on"
+            size={32}
+            color={COLORS.cyan}
+          />
+        </View>
+      </LinearGradient>
 
-      <ThemedView style={styles.formCard}>
-        <ThemedText type="subtitle">Input Signals</ThemedText>
+      {/* Input Section */}
+      <LinearGradient
+        colors={[COLORS.darkGrey, COLORS.grey]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.formCard}
+      >
+        <View style={styles.formHeader}>
+          <MaterialCommunityIcons name="tune" size={20} color={COLORS.cyan} />
+          <ThemedText style={styles.formTitle}>Input Parameters</ThemedText>
+        </View>
 
-        <View style={styles.fieldWrap}>
-          <ThemedText>Forecasted Surplus (MW)</ThemedText>
-          <TextInput
-            style={styles.input}
+        <View style={styles.inputsContainer}>
+          <InputField
+            label="Forecasted Surplus"
             value={surplusInput}
             onChangeText={setSurplusInput}
-            keyboardType="decimal-pad"
             placeholder="e.g. 10.5"
+            icon="flash"
+            unit="MW"
           />
-        </View>
 
-        <View style={styles.fieldWrap}>
-          <ThemedText>Battery Level (0 to 100)</ThemedText>
-          <TextInput
-            style={styles.input}
+          <InputField
+            label="Battery Level"
             value={batteryInput}
             onChangeText={setBatteryInput}
-            keyboardType="decimal-pad"
-            placeholder="e.g. 0.65"
+            placeholder="e.g. 65"
+            icon="battery"
+            unit="%"
           />
-        </View>
 
-        <View style={styles.fieldWrap}>
-          <ThemedText>Grid Stress (0 to 1)</ThemedText>
-          <TextInput
-            style={styles.input}
+          <InputField
+            label="Grid Stress"
             value={stressInput}
             onChangeText={setStressInput}
-            keyboardType="decimal-pad"
             placeholder="e.g. 0.4"
+            icon="gauge"
+            unit="0-1"
           />
         </View>
 
-        <Pressable onPress={runPrediction} style={styles.runButton}>
-          <ThemedText type="defaultSemiBold">Run Recommendation</ThemedText>
-        </Pressable>
-      </ThemedView>
+        <Animated.View
+          style={[
+            styles.runButtonContainer,
+            { transform: [{ scale: buttonScaleAnim }] },
+          ]}
+        >
+          <Pressable
+            onPress={runPrediction}
+            disabled={prediction.loading}
+            style={styles.runButton}
+          >
+            <LinearGradient
+              colors={[COLORS.green, COLORS.green + "CC"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.runButtonGradient}
+            >
+              <MaterialCommunityIcons
+                name={prediction.loading ? "loading" : "play"}
+                size={20}
+                color={COLORS.black}
+              />
+              <ThemedText style={styles.runButtonText}>
+                {prediction.loading ? "Computing..." : "Run Recommendation"}
+              </ThemedText>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      </LinearGradient>
 
+      {/* Loading State */}
       {prediction.loading && (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator size="small" />
-          <ThemedText>Computing action recommendation...</ThemedText>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={COLORS.green} />
+          <ThemedText style={styles.loaderText}>
+            Analyzing grid state...
+          </ThemedText>
         </View>
       )}
 
+      {/* Error State */}
       {!!prediction.error && (
-        <ThemedView style={styles.errorCard}>
-          <ThemedText type="defaultSemiBold">Predict endpoint error</ThemedText>
-          <ThemedText>{prediction.error}</ThemedText>
-        </ThemedView>
+        <LinearGradient
+          colors={[COLORS.red + "20", COLORS.red + "10"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.errorCard, { borderColor: COLORS.red }]}
+        >
+          <View style={styles.errorHeader}>
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={20}
+              color={COLORS.red}
+            />
+            <ThemedText style={[styles.errorTitle, { color: COLORS.red }]}>
+              Prediction Error
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.errorMessage}>
+            {prediction.error}
+          </ThemedText>
+        </LinearGradient>
       )}
 
+      {/* Result State */}
       {!!prediction.data && (
-        <ThemedView style={styles.outputCard}>
-          <ThemedText type="subtitle">Recommended Action</ThemedText>
-          <ActionBadge action={prediction.data.action} />
+        <ActionCard
+          action={prediction.data.action}
+          confidence={prediction.data.confidence}
+          urgency={prediction.data.urgencyScore}
+          surplus={prediction.data.surplusKwh}
+          reason={
+            prediction.data.reason || "Recommendation based on grid analysis"
+          }
+        />
+      )}
 
-          <View style={styles.metricsRow}>
-            <MetricCard
-              title="Confidence"
-              value={`${Math.round(prediction.data.confidence * 100)}%`}
+      {/* Info Cards */}
+      <View style={styles.infoSection}>
+        <LinearGradient
+          colors={[COLORS.darkGrey, COLORS.grey]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.infoCard}
+        >
+          <View style={styles.infoHeader}>
+            <MaterialCommunityIcons
+              name="information"
+              size={20}
+              color={COLORS.cyan}
             />
-            <MetricCard
-              title="Urgency"
-              value={`${Math.round(prediction.data.urgencyScore * 100)}%`}
-            />
-            <MetricCard
-              title="Predicted Surplus"
-              value={`${prediction.data.surplusKwh.toFixed(1)} kWh`}
-            />
+            <ThemedText style={styles.infoTitle}>Actions Explained</ThemedText>
           </View>
 
-          {!!prediction.data.reason && (
-            <ThemedView style={styles.reasonCard}>
-              <ThemedText type="defaultSemiBold">Rationale</ThemedText>
-              <ThemedText>{prediction.data.reason}</ThemedText>
-            </ThemedView>
-          )}
-        </ThemedView>
-      )}
+          <View style={styles.actionExplanation}>
+            <View style={styles.explanationItem}>
+              <View
+                style={[
+                  styles.actionIndicator,
+                  { backgroundColor: ACTION_COLORS.STORE.text },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.explanationLabel}>STORE</ThemedText>
+                <ThemedText style={styles.explanationText}>
+                  Charge battery from excess supply
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.explanationItem}>
+              <View
+                style={[
+                  styles.actionIndicator,
+                  { backgroundColor: ACTION_COLORS.RELEASE.text },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.explanationLabel}>RELEASE</ThemedText>
+                <ThemedText style={styles.explanationText}>
+                  Discharge battery to meet demand
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.explanationItem}>
+              <View
+                style={[
+                  styles.actionIndicator,
+                  { backgroundColor: ACTION_COLORS.REDISTRIBUTE.text },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.explanationLabel}>
+                  REDISTRIBUTE
+                </ThemedText>
+                <ThemedText style={styles.explanationText}>
+                  Shift load between regions
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.explanationItem}>
+              <View
+                style={[
+                  styles.actionIndicator,
+                  { backgroundColor: ACTION_COLORS.STABLE.text },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.explanationLabel}>STABLE</ThemedText>
+                <ThemedText style={styles.explanationText}>
+                  Grid is balanced, no action needed
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 14,
     paddingBottom: 28,
+    backgroundColor: COLORS.black,
   },
-  topCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.25)',
-    backgroundColor: 'rgba(46, 125, 50, 0.08)',
-    padding: 14,
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    paddingTop: 28,
     gap: 8,
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  headerTitle: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    color: COLORS.lightGrey,
+    fontSize: 12,
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
   formCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.2)',
-    padding: 14,
-    gap: 12,
-  },
-  fieldWrap: {
-    gap: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.35)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  runButton: {
-    alignSelf: 'flex-start',
+    marginHorizontal: 14,
+    marginVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.35)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: COLORS.grey,
+    padding: 14,
+    gap: 14,
   },
-  loaderWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  formHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  errorCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(220, 60, 60, 0.4)',
-    padding: 12,
+  formTitle: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  inputsContainer: {
+    gap: 12,
+  },
+  inputField: {
+    gap: 8,
+  },
+  inputHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  inputLabel: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
-  outputCard: {
-    borderRadius: 14,
+  inputLabelText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  inputUnit: {
+    color: COLORS.lightGrey,
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  inputWrapper: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: COLORS.grey,
+    overflow: "hidden",
+  },
+  input: {
+    backgroundColor: COLORS.darkGrey,
+    color: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  runButtonContainer: {
+    marginTop: 4,
+  },
+  runButton: {
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  runButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  runButtonText: {
+    color: COLORS.black,
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  loaderContainer: {
+    marginHorizontal: 14,
+    marginVertical: 12,
+    paddingVertical: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loaderText: {
+    marginTop: 12,
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  errorCard: {
+    marginHorizontal: 14,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.2)',
-    padding: 14,
+    gap: 8,
+  },
+  errorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  errorTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  errorMessage: {
+    color: COLORS.lightGrey,
+    fontSize: 12,
+  },
+  actionCardWrapper: {
+    marginHorizontal: 14,
+    marginVertical: 12,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  actionCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    gap: 14,
+  },
+  actionBadge: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  actionText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  metricsGrid: {
     gap: 10,
   },
-  metricsRow: {
-    gap: 10,
+  metricItem: {
+    gap: 6,
+  },
+  metricLabel: {
+    color: COLORS.lightGrey,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  metricBarBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.black + "40",
+    overflow: "hidden",
+  },
+  metricBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  metricValue: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  surplusBox: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  surplusValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   reasonCard: {
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.2)',
     padding: 10,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: COLORS.grey,
+    gap: 6,
+  },
+  reasonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reasonTitle: {
+    color: COLORS.cyan,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  reasonText: {
+    color: COLORS.lightGrey,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  infoSection: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  infoCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.grey,
+    padding: 14,
+    gap: 12,
+  },
+  infoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  infoTitle: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  actionExplanation: {
+    gap: 10,
+  },
+  explanationItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  actionIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 4,
+  },
+  explanationLabel: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  explanationText: {
+    color: COLORS.lightGrey,
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: "500",
   },
 });

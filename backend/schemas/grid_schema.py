@@ -17,6 +17,11 @@ class GridAction(str, Enum):
     REROUTE_ENERGY = "reroute_energy"
     NO_ACTION = "no_action"
 
+class BatteryStatus(str, Enum):
+    CHARGING = "charging"
+    DISCHARGING = "discharging"
+    IDLE = "idle"
+
 # ─── Forecast Schemas ────────────────────────────────────────────────
 class ForecastRequest(BaseModel):
     city: str = "Mumbai"
@@ -51,6 +56,7 @@ class GridState(BaseModel):
     net_balance_mw: float
     battery_level_mwh: float
     battery_percentage: float
+    battery_status: BatteryStatus
     grid_status: GridStatus
     recommended_action: GridAction
     action_description: str

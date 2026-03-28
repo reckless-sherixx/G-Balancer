@@ -14,20 +14,36 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import settings
-from database.db import init_db
+from database.db import init_db, migrate_add_battery_status
 from routes.grid import router as grid_router
 from routes.forecast import router as forecast_router
 from routes.dashboard import router as dashboard_router
 from routes.websocket_route import router as ws_router
 from routes.mobile_compat import router as mobile_router
+from routes.insights import router as insights_router
 from models.demand_forecaster import get_models   # pre-load models on startup
+from redis_client import redis_client, publish_grid_update
+from redis_keys import GRID_ALERTS, normalize_city
 
 # ─── Scheduled task: auto-balance every minute ────────────────────────
 scheduler = AsyncIOScheduler()
 
+
+def _battery_status_from_action(action_value: str | None) -> str:
+    """Map grid action labels to battery status labels used by DB schema."""
+    if not action_value:
+        return "idle"
+    normalized = str(action_value).lower()
+    if normalized in {"store_energy", "store", "charging"}:
+        return "charging"
+    if normalized in {"discharge_battery", "release", "discharging"}:
+        return "discharging"
+    return "idle"
+
 async def auto_balance_task():
     """
     Background job: fetch weather + run predictions + log grid state.
+    Uses forecast recommendations to inform battery charging/discharging strategy.
     Runs every BALANCE_INTERVAL_SECONDS (default: 60s).
     """
     try:
@@ -35,6 +51,7 @@ async def auto_balance_task():
         from models.demand_forecaster import predict_demand, predict_solar, predict_wind
         from services.grid_balancer import run_balancer, update_battery
         from services.alert_service import generate_alerts_from_state
+        from services.forecast_service import get_forecast_recommendations
         from database.db import AsyncSessionLocal, GridStateDB, AlertDB
 
         now     = datetime.now(timezone.utc)
@@ -69,7 +86,32 @@ async def auto_balance_task():
             city=settings.DEFAULT_CITY
         )
 
+        # Publish event-driven updates via Redis pub/sub (graceful no-op if unavailable)
+        try:
+            await publish_grid_update(state.city, state.model_dump(mode="json"))
+        except Exception:
+            # pub/sub must never break balancing flow
+            pass
+
+        # Enhanced battery strategy: Use forecast for next hour to inform decisions
+        battery_action = state.recommended_action
+        try:
+            next_hour_action = await get_forecast_recommendations(
+                city=settings.DEFAULT_CITY,
+                hours_ahead=1,
+                latitude=settings.DEFAULT_LATITUDE,
+                longitude=settings.DEFAULT_LONGITUDE
+            )
+            if next_hour_action:
+                battery_action = next_hour_action
+                print(f"  📊 Forecast (next hour): {battery_action.value} → Using forecast-informed strategy")
+        except Exception as e:
+            print(f"  ⚠️  Forecast lookup failed: {e}, using current action")
+
         async with AsyncSessionLocal() as db:
+            battery_status = _battery_status_from_action(
+                battery_action.value if battery_action else None
+            )
             db.add(GridStateDB(
                 timestamp=state.timestamp,
                 city=state.city,
@@ -81,6 +123,7 @@ async def auto_balance_task():
                 net_balance_mw=state.net_balance_mw,
                 battery_level_mwh=state.battery_level_mwh,
                 battery_percentage=state.battery_percentage,
+                battery_status=battery_status,
                 grid_status=state.grid_status.value,
                 recommended_action=state.recommended_action.value,
                 action_description=state.action_description
@@ -93,11 +136,20 @@ async def auto_balance_task():
                     message=a.message,
                     recommended_action=a.recommended_action.value
                 ))
+            # Invalidate alerts cache whenever new alerts are written
+            if alerts:
+                try:
+                    if await redis_client.is_redis_available() and redis_client.client is not None:
+                        alerts_key = GRID_ALERTS.format(city=normalize_city(state.city))
+                        await redis_client.client.delete(alerts_key)
+                except Exception:
+                    pass
             await db.commit()
 
         print(f"[{now.strftime('%H:%M:%S')}] ⚡ Auto-balanced | "
               f"Demand: {demand_mw:.0f} MW | "
               f"Solar: {solar_mw:.0f} MW | "
+              f"Action: {battery_action.value} | "
               f"Status: {state.grid_status.value}")
 
     except Exception as e:
@@ -122,6 +174,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("      ✅ Database ready")
     
+    print("   1️⃣.5️⃣ Running migrations...")
+    await migrate_add_battery_status()
+    print("      ✅ Migrations complete")
+    
     print("   2️⃣  Loading ML models...")
     get_models()   # pre-load / train ML models
     print("      ✅ Models loaded")
@@ -136,6 +192,13 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     print(f"      ✅ Scheduler started (interval: {settings.BALANCE_INTERVAL_SECONDS}s)")
+
+    print("   4️⃣  Connecting Redis...")
+    redis_ok = await redis_client.connect()
+    if redis_ok:
+        print("      ✅ Redis connected")
+    else:
+        print("      ⚠️  Redis unavailable - running without cache/pubsub")
     
     print("\n✅ App startup complete!")
     print("="*70)
@@ -152,6 +215,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("\n🛑 Shutting down...")
     scheduler.shutdown()
+    await redis_client.disconnect()
     print("✅ Scheduler stopped. Goodbye!\n")
 
 
@@ -187,6 +251,8 @@ app.include_router(forecast_router)
 app.include_router(dashboard_router)
 app.include_router(ws_router)
 app.include_router(mobile_router)  # Mobile app compatibility endpoints
+app.include_router(mobile_router, prefix="/mobile")  # Alias paths for /mobile/* clients
+app.include_router(insights_router, prefix="/insights", tags=["insights"])
 
 
 # ─── Root ─────────────────────────────────────────────────────────────

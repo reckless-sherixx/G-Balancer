@@ -6,9 +6,21 @@ export type ForecastPoint = {
   demand: number;
 };
 
+export type ForecastSummary = {
+  peak_demand_mw: number;
+  min_demand_mw: number;
+  avg_demand_mw: number;
+  hours_with_surplus: number;
+  hours_with_deficit: number;
+  critical_hours: number;
+};
+
 export type ForecastResponse = {
   horizonHours: number;
   points: ForecastPoint[];
+  summary?: ForecastSummary;
+  city?: string;
+  generatedAt?: string;
 };
 
 export type GridStatusResponse = {
@@ -18,6 +30,9 @@ export type GridStatusResponse = {
   surplusKwh: number;
   currentSupply: number;
   currentDemand: number;
+  solarGenerationMw: number;
+  windGenerationMw: number;
+  conventionalGenerationMw: number;
   updatedAt: string;
 };
 

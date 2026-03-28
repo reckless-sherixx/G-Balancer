@@ -11,6 +11,7 @@ from services.grid_balancer import run_balancer
 from services.alert_service import generate_alerts_from_state
 from models.demand_forecaster import predict_demand, predict_solar, predict_wind
 from config import settings
+from redis_client import redis_client, is_redis_available
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -105,11 +106,23 @@ async def get_dashboard(
         "total_readings_stored": stats_row.total_records
     }
 
+    cache_info = {
+        "redis_connected": False,
+        "keys_cached": None,
+    }
+    if await is_redis_available() and redis_client.client is not None:
+        cache_info["redis_connected"] = True
+        try:
+            cache_info["keys_cached"] = int(await redis_client.client.dbsize())
+        except Exception:
+            cache_info["keys_cached"] = None
+
     return {
         "current_state": current_state,
         "weather":        weather,
         "recent_alerts":  recent_alerts[:5],
         "stats":          stats,
+        "cache":          cache_info,
         "generated_at":   now.isoformat()
     }
 

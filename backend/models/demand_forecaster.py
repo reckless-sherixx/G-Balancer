@@ -12,7 +12,7 @@ This module orchestrates:
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-import sys
+from zoneinfo import ZoneInfo
 import os
 import joblib
 from sklearn.preprocessing import MinMaxScaler
@@ -24,9 +24,6 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     torch = None
-
-# Make ml module importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ml", "src"))
 
 # Model artifact paths (trained models)
 FORECASTER_PATH = os.path.join(os.path.dirname(__file__), "..", "ml", "models", "forecaster.pt")
@@ -44,6 +41,7 @@ _recommender = None
 _label_encoder = None
 _scaler = None
 _observation_buffer = None  # Historical observations for LSTM (72+ hours)
+IST = ZoneInfo("Asia/Kolkata")
 
 
 class ObservationBuffer:
@@ -62,7 +60,7 @@ class ObservationBuffer:
             "features": features.copy()
         })
         # Keep only last 72 hours
-        cutoff = datetime.utcnow() - timedelta(hours=self.max_hours)
+        cutoff = datetime.now(IST).replace(tzinfo=None) - timedelta(hours=self.max_hours)
         self.observations = [o for o in self.observations if o["timestamp"] >= cutoff]
     
     def get_sequence(self, end_time: datetime, seq_len: int = 72) -> np.ndarray | None:
@@ -91,7 +89,7 @@ def _generate_synthetic_buffer():
     Returns an ObservationBuffer ready for LSTM inference.
     """
     buffer = ObservationBuffer(max_hours=72)
-    now = datetime.utcnow()
+    now = datetime.now(IST).replace(tzinfo=None)
     
     # Generate 72 hourly observations backwards from now
     for i in range(72, 0, -1):
@@ -164,17 +162,17 @@ def get_models():
         return _forecaster, _recommender, _label_encoder, _scaler, _observation_buffer
     
     try:
-        from forecaster import load_model as load_forecaster
-        from recommender import load_recommender
-        from preprocess import load_scaler
-        
-        print("📦 Loading trained ML models from backend/ml/models...")
+        from ml.src.forecaster import load_model as load_forecaster
+        from ml.src.recommender import load_recommender
+        from ml.src.preprocess import load_scaler
+
+        print("[models] Loading trained ML models from backend/ml/models...")
         _forecaster = load_forecaster()
         _recommender, _label_encoder = load_recommender()
         _scaler = load_scaler()
-        print("✅ All ML models loaded successfully")
+        print("[models] All ML models loaded successfully")
     except Exception as e:
-        print(f"⚠️ Warning: Could not load ML models: {e}")
+        print(f"[warning] Could not load ML models: {e}")
         print("   Falling back to formula-based predictions")
         _forecaster = None
         _recommender = None
@@ -184,7 +182,7 @@ def get_models():
     # Initialize observation buffer
     if _observation_buffer is None:
         _observation_buffer = _generate_synthetic_buffer()
-        print("📊 Observation buffer initialized with synthetic 72-hour history")
+        print("[buffer] Observation buffer initialized with synthetic 72-hour history")
     
     return _forecaster, _recommender, _label_encoder, _scaler, _observation_buffer
 
@@ -220,16 +218,23 @@ def _forecast_lstm(buffer: ObservationBuffer, target_hour: datetime) -> dict | N
             x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             x = x.to(device)
-            output = forecaster(x).cpu().numpy()  # (1, 6, 2)
-        
-        # Extract prediction for first hour (target_hour)
-        predictions = output[0, 0, :]  # [supply_kwh, demand_kwh]
+            output = forecaster(x).detach().cpu()
+
+        # Extract prediction for first hour without requiring torch->numpy bridge.
+        # Supports both model output shapes: (1, 6, 2) and flattened (1, N>=2).
+        if output.ndim == 3 and output.shape[0] >= 1 and output.shape[1] >= 1 and output.shape[2] >= 2:
+            predictions = output[0, 0, :2]
+        elif output.ndim == 2 and output.shape[0] >= 1 and output.shape[1] >= 2:
+            predictions = output[0, :2]
+        else:
+            raise RuntimeError(f"Unexpected LSTM output shape: {tuple(output.shape)}")
+
         return {
-            "supply_kwh": float(predictions[0]),
-            "demand_kwh": float(predictions[1])
+            "supply_kwh": float(predictions[0].item()),
+            "demand_kwh": float(predictions[1].item())
         }
     except Exception as e:
-        print(f"⚠️ LSTM forecast failed: {e}. Using fallback.")
+        print(f"[warning] LSTM forecast failed: {e}. Using fallback.")
         return None
 
 
@@ -255,7 +260,7 @@ def predict_demand(hour: int, day_of_week: int, month: int,
     _, _, _, _, buffer = get_models()
     
     # Build target hour
-    now = datetime.utcnow()
+    now = datetime.now(IST).replace(tzinfo=None)
     target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
     
     # Try LSTM prediction
@@ -264,15 +269,16 @@ def predict_demand(hour: int, day_of_week: int, month: int,
         if lstm_result:
             return max(0.0, round(lstm_result["demand_kwh"], 2))
     
-    # Fallback: Formula-based
+    # Fallback: Formula-based (deterministic predictions)
     base_demand = 2500.0
     hour_factor = 1.2 if 8 <= hour <= 12 else (1.35 if 17 <= hour <= 21 else (0.65 if 0 <= hour <= 5 else 1.0))
     weekend_factor = 0.85 if day_of_week >= 5 else 1.0
     temp_factor = 1.0 + 0.008 * max(0, temperature - 25)
     month_factor = 1.05 if month in [6, 7, 8] else 1.0
     
+    # No random noise - predictions must be consistent and accurate across refreshes
     demand_mw = (base_demand * hour_factor * weekend_factor * 
-                 temp_factor * month_factor + np.random.normal(0, 50))
+                 temp_factor * month_factor)
     
     return max(1000.0, round(float(demand_mw), 2))
 
@@ -296,7 +302,7 @@ def predict_solar(hour: int, day_of_week: int, month: int,
     _, _, _, _, buffer = get_models()
     
     # Build target hour
-    now = datetime.utcnow()
+    now = datetime.now(IST).replace(tzinfo=None)
     target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
     
     # Try LSTM prediction (will return supply_kwh which includes solar, wind, conventional)
@@ -313,7 +319,7 @@ def predict_solar(hour: int, day_of_week: int, month: int,
             else:
                 return 0.0
     
-    # Fallback: Formula-based
+    # Fallback: Formula-based (deterministic predictions)
     if hour < 6 or hour > 18:
         return 0.0
     
@@ -321,8 +327,9 @@ def predict_solar(hour: int, day_of_week: int, month: int,
     temp_factor = 1.0 - 0.003 * max(0, temperature - 25)
     irradiance_factor = min(solar_irradiance / 1000.0, 1.0)
     
+    # No random noise - predictions must be consistent and accurate across refreshes
     solar_mw = (1200.0 * irradiance_factor * cloud_factor * 
-                temp_factor + np.random.normal(0, 20))
+                temp_factor)
     
     return max(0.0, round(float(solar_mw), 2))
 
@@ -348,8 +355,9 @@ def predict_wind(wind_speed: float) -> float:
         return 0.0
     
     # Power curve: cubic relationship to rated speed
+    # No random noise - predictions must be consistent and accurate across refreshes
     power_factor = min((wind_ms / 14.0) ** 3, 1.0)
-    wind_mw = wind_capacity * power_factor + np.random.normal(0, 25)
+    wind_mw = wind_capacity * power_factor
     
     return max(0.0, round(float(wind_mw), 2))
 
