@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { AdminPanelModal } from "@/components/admin/AdminPanelModal";
@@ -12,10 +12,7 @@ import { useAdminSettings } from "@/features/admin/settings-context";
 import { useAlertsData, useInsightsSummary } from "@/features/insights/hooks";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-const SEVERITY_COLOR: Record<
-  "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE",
-  string
-> = {
+const SEVERITY_COLOR: Record<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE", string> = {
   CRITICAL: "#FF4444",
   HIGH: "#FF7A45",
   MEDIUM: "#FFD700",
@@ -35,8 +32,7 @@ export default function TabLayout() {
     pollIntervalMs: settings.insightsPolling ? 60_000 : undefined,
   });
 
-  const totalAlerts =
-    alerts.data?.alert_count ?? summary.data?.alert_count ?? 0;
+  const totalAlerts = alerts.data?.alert_count ?? summary.data?.alert_count ?? 0;
   const highestSeverity = summary.data?.highest_severity ?? "NONE";
   const badgeColor = SEVERITY_COLOR[highestSeverity];
 
@@ -54,20 +50,54 @@ export default function TabLayout() {
 
   return (
     <>
+      <View style={styles.missionBar}>
+        <MaterialCommunityIcons name="monitor" size={18} color="#00FF87" />
+        <View style={styles.missionTextGroup}>
+          <View style={styles.missionPill} />
+          <View style={styles.missionTitleWrap}>
+            <Text style={styles.missionTitle}>Mission: Grid Control</Text>
+            <Text style={[styles.missionLabel, { color: badgeColor }]}>Severity: {highestSeverity}</Text>
+          </View>
+          <Text style={styles.missionSubtitle}>Live data stream from network</Text>
+        </View>
+      </View>
+
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+          tabBarInactiveTintColor: "#878D95",
+          tabBarStyle: {
+            backgroundColor: "#070707",
+            borderTopWidth: 0,
+            elevation: 12,
+            shadowColor: "#000",
+            shadowOpacity: 0.7,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: -3 },
+            height: 70,
+          },
+          tabBarIconStyle: {
+            marginTop: 4,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: "700",
+            letterSpacing: 0.45,
+            marginBottom: 4,
+          },
           headerShown: true,
           headerStyle: {
-            backgroundColor: "#0B0B0B",
+            backgroundColor: "#080808",
+            borderBottomWidth: 0,
+            height: 74,
           },
+          headerTintColor: "#00FF87",
           headerTitleStyle: {
             color: "#FFFFFF",
-            fontSize: 17,
-            fontWeight: "700",
+            fontSize: 18,
+            fontWeight: "800",
+            letterSpacing: 0.7,
           },
-          headerTintColor: "#00F0FF",
-          headerShadowVisible: false,
           headerRight: () => (
             <View style={styles.headerActionsWrap}>
               <Pressable
@@ -80,24 +110,11 @@ export default function TabLayout() {
               </Pressable>
 
               {settings.alertsEnabled ? (
-                <Pressable
-                  style={styles.headerAlertButton}
-                  onPress={openAlerts}
-                >
-                  <MaterialCommunityIcons
-                    name="bell-ring-outline"
-                    size={22}
-                    color="#00F0FF"
-                  />
+                <Pressable style={styles.headerAlertButton} onPress={openAlerts}>
+                  <MaterialCommunityIcons name="bell-ring-outline" size={22} color="#00FF87" />
                   {totalAlerts > 0 ? (
-                    <View
-                      style={[styles.badge, { backgroundColor: badgeColor }]}
-                    >
-                      <MaterialCommunityIcons
-                        name="alert"
-                        size={10}
-                        color="#0B0B0B"
-                      />
+                    <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+                      <MaterialCommunityIcons name="alert" size={10} color="#0B0B0B" />
                     </View>
                   ) : null}
                 </Pressable>
@@ -111,31 +128,21 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "Overview",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="house.fill" color={color} />
-            ),
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
           }}
         />
         <Tabs.Screen
           name="explore"
           options={{
             title: "Forecast",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="paperplane.fill" color={color} />
-            ),
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
           }}
         />
         <Tabs.Screen
           name="actions"
           options={{
             title: "Actions",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol
-                size={28}
-                name="chevron.left.forwardslash.chevron.right"
-                color={color}
-              />
-            ),
+            tabBarIcon: ({ color }) => <IconSymbol name="chevron.left.forwardslash.chevron.right" size={28} color={color} />,
           }}
         />
         <Tabs.Screen
@@ -143,13 +150,7 @@ export default function TabLayout() {
           options={{
             title: "Festivals",
             href: settings.festivalsEnabled ? undefined : null,
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons
-                name="calendar-star"
-                size={24}
-                color={color}
-              />
-            ),
+            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="calendar-star" size={24} color={color} />,
           }}
         />
         <Tabs.Screen
@@ -157,17 +158,12 @@ export default function TabLayout() {
           options={{
             title: "CO2",
             href: settings.co2Enabled ? undefined : null,
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons name="leaf" size={24} color={color} />
-            ),
+            tabBarIcon: ({ color }) => <MaterialCommunityIcons name="leaf" size={24} color={color} />,
           }}
         />
       </Tabs>
 
-      <AdminPanelModal
-        visible={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-      />
+      <AdminPanelModal visible={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
 
       <AlertsModal
         visible={isAlertsOpen}
@@ -182,6 +178,49 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  missionBar: {
+    backgroundColor: "#070707",
+    borderBottomWidth: 1,
+    borderBottomColor: "#182127",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  missionTextGroup: {
+    flex: 1,
+    flexDirection: "column",
+    gap: 4,
+  },
+  missionPill: {
+    width: 6,
+    height: 22,
+    backgroundColor: "#00FF87",
+    borderRadius: 3,
+  },
+  missionTitle: {
+    color: "#00FF87",
+    fontWeight: "800",
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  missionSubtitle: {
+    color: "#A8B0B8",
+    fontSize: 11,
+  },
+  missionLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  missionTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   headerActionsWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -202,30 +241,23 @@ const styles = StyleSheet.create({
     opacity: 0.22,
   },
   headerAlertButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#2E6A72",
+    borderColor: "#225F75",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1A1A1A",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: "#111B21",
   },
   badge: {
     position: "absolute",
-    right: -2,
-    top: -2,
-    minWidth: 16,
-    height: 16,
+    top: 3,
+    right: 2,
+    width: 14,
+    height: 14,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#0B0B0B",
   },
 });

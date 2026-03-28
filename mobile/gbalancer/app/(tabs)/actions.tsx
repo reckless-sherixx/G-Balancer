@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Easing,
   Pressable,
   ScrollView,
@@ -15,8 +14,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/themed-text";
 import { usePredictionData } from "@/features/grid/hooks";
-
-const { width } = Dimensions.get("window");
 
 const COLORS = {
   black: "#0B0B0B",
@@ -178,7 +175,7 @@ const ActionCard: React.FC<ActionCardProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [action]);
+  }, [action, opacityAnim, scaleAnim]);
 
   const colors = ACTION_COLORS[action] || ACTION_COLORS.STABLE;
 

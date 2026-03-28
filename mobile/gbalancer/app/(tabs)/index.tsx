@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,173 +8,73 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  Dimensions,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { useGridStatusData, useForecastData } from "@/features/grid/hooks";
 
-const { width } = Dimensions.get("window");
-
-// ===== COLOR THEME =====
-const COLORS = {
-  black: "#0B0B0B",
-  darkGrey: "#1A1A1A",
-  grey: "#2A2A2A",
-  lightGrey: "#3A3A3A",
-  green: "#00FF41",
-  cyan: "#00F0FF",
-  white: "#FFFFFF",
-  red: "#FF4444",
-  yellow: "#FFD700",
+const INPUT_COLORS = {
+  background: "#080808",
+  panel: "#0e0e0e",
+  panelBorder: "#232323",
+  text: "#FFFFFF",
+  grey: "#7a7a7a",
+  neon: "#00ff87",
+  cyan: "#00f0ff",
+  amber: "#ffd700",
+  critical: "#ff4444",
 };
 
-// ===== DATA TYPES =====
-interface GridStatus {
-  battery_level_pct: number;
-  status: string;
-  supply_mw: number;
-  demand_mw: number;
-  solar_mw: number;
-  wind_mw: number;
-  renewable_percentage: number;
-}
-
-// ===== COMPONENTS =====
-
-interface StatBoxProps {
-  icon: string;
-  label: string;
-  value: string | number;
-  unit: string;
-  color?: string;
-}
-
-const StatBox: React.FC<StatBoxProps> = ({
-  icon,
-  label,
-  value,
-  unit,
-  color = COLORS.white,
-}) => (
-  <LinearGradient
-    colors={[COLORS.darkGrey, COLORS.grey]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.statBox}
-  >
-    <View style={styles.statHeader}>
-      <MaterialCommunityIcons name={icon as any} size={20} color={color} />
-      <Text style={styles.statLabel}>{label}</Text>
+const MetricLabel = ({ label, value, unit, icon, color }: { label: string; value: string | number; unit?: string; icon: string; color: string }) => (
+  <View style={[styles.metricItem, { borderColor: color }]}>
+    <View style={[styles.metricIcon, { backgroundColor: `${color}25` }]}>
+      <MaterialCommunityIcons name={icon as any} size={18} color={color} />
     </View>
-    <View style={styles.statContent}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statUnit}>{unit}</Text>
-    </View>
-  </LinearGradient>
+    <Text style={[styles.metricValue, { color }]}>{value}</Text>
+    {unit ? <Text style={styles.metricUnit}>{unit}</Text> : null}
+    <Text style={styles.metricLabel}>{label}</Text>
+  </View>
 );
-
-interface EnergyBarProps {
-  label: string;
-  percentage: number;
-  color: string;
-}
-
-const EnergyBar: React.FC<EnergyBarProps> = ({ label, percentage, color }) => {
-  const animValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(animValue, {
-      toValue: percentage,
-      duration: 1200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [percentage]);
-
-  const width = animValue.interpolate({
-    inputRange: [0, 100],
-    outputRange: ["0%", "100%"],
-  });
-
-  return (
-    <View style={styles.energyBarContainer}>
-      <View style={styles.energyBarHeader}>
-        <Text style={styles.energyBarLabel}>{label}</Text>
-        <Text style={[styles.energyBarValue, { color }]}>
-          {Math.round(percentage)}%
-        </Text>
-      </View>
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.grey]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.energyBarBg}
-      >
-        <Animated.View
-          style={[styles.energyBarFill, { width, backgroundColor: color }]}
-        >
-          <LinearGradient
-            colors={[color, color + "BB"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ width: "100%", height: "100%" }}
-          />
-        </Animated.View>
-      </LinearGradient>
-    </View>
-  );
-};
-
-// ===== MAIN COMPONENT =====
 
 export default function HomeScreen() {
   const gridStatus = useGridStatusData();
   const forecast = useForecastData();
-  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
 
-  // Pulse animation for status indicator
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
+        Animated.timing(pulse, {
           toValue: 1,
-          duration: 1500,
+          duration: 1600,
+          easing: Easing.ease,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(pulse, {
           toValue: 0,
-          duration: 1500,
+          duration: 1600,
+          easing: Easing.ease,
           useNativeDriver: true,
         }),
       ]),
     ).start();
-  }, []);
+  }, [pulse]);
 
   if (gridStatus.loading && !gridStatus.data) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <Text style={styles.loaderText}>Initializing...</Text>
-        </View>
+      <View style={styles.fullScreenCenter}>
+        <ActivityIndicator size="large" color={INPUT_COLORS.neon} />
+        <Text style={styles.helperText}>Initializing grid comms...</Text>
       </View>
     );
   }
 
   if (gridStatus.error && !gridStatus.data) {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons
-            name="alert-circle"
-            size={48}
-            color={COLORS.red}
-          />
-          <Text style={styles.errorTitle}>Connection Error</Text>
-          <Text style={styles.errorMessage}>{gridStatus.error}</Text>
-        </View>
+      <View style={styles.fullScreenCenter}>
+        <MaterialCommunityIcons name="alert-circle" size={56} color={INPUT_COLORS.critical} />
+        <Text style={styles.errorTitle}>Data link failure</Text>
+        <Text style={styles.errorText}>{gridStatus.error}</Text>
       </View>
     );
   }
@@ -182,324 +82,99 @@ export default function HomeScreen() {
   const gridData = gridStatus.data;
   if (!gridData) {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons
-            name="alert-circle"
-            size={48}
-            color={COLORS.red}
-          />
-          <Text style={styles.errorTitle}>No Data</Text>
-          <Text style={styles.errorMessage}>Grid data unavailable</Text>
-        </View>
+      <View style={styles.fullScreenCenter}>
+        <MaterialCommunityIcons name="database-off" size={52} color={INPUT_COLORS.amber} />
+        <Text style={styles.errorTitle}>No grid feed</Text>
+        <Text style={styles.errorText}>Live telemetry unavailable</Text>
       </View>
     );
   }
 
-  const balanceStatus = gridData.currentSupply >= gridData.currentDemand;
+  const isHealthy = gridData.currentSupply >= gridData.currentDemand;
+  const balanceDelta = Math.abs(gridData.currentSupply - gridData.currentDemand).toFixed(1);
+  const renewablePercent = gridData.currentSupply > 0 ? ((gridData.solarGenerationMw + gridData.windGenerationMw) / gridData.currentSupply) * 100 : 0;
 
   return (
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl
-          refreshing={gridStatus.loading}
-          onRefresh={() => gridStatus.refresh()}
-          tintColor={COLORS.green}
-        />
+        <RefreshControl refreshing={gridStatus.loading} onRefresh={() => gridStatus.refresh()} tintColor={INPUT_COLORS.neon} />
       }
     >
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.black]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>G-Balancer</Text>
-            <Text style={styles.headerSubtitle}>Energy Grid Control</Text>
-          </View>
-          <Animated.View
-            style={[
-              styles.statusBadge,
-              {
-                opacity: pulseAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.6, 1],
-                }),
-              },
-            ]}
-          >
-            <View
-              style={[styles.statusDot, { backgroundColor: COLORS.green }]}
-            />
-            <Text style={[styles.statusText, { color: COLORS.green }]}>
-              ONLINE
-            </Text>
-          </Animated.View>
-        </View>
-        <Text style={styles.updateText}>
-          Updated: {new Date(gridData.updatedAt).toLocaleTimeString()}
-        </Text>
-      </LinearGradient>
-
-      {/* Battery Status Card */}
-      <View style={styles.section}>
-        <LinearGradient
-          colors={[COLORS.darkGrey, COLORS.grey]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.batteryCard}
-        >
-          <View style={styles.batteryHeader}>
-            <View>
-              <Text style={styles.batteryTitle}>Battery Storage</Text>
-              <Text style={styles.batterySubtitle}>Current capacity level</Text>
-            </View>
-            <MaterialCommunityIcons
-              name="battery-charging"
-              size={32}
-              color={COLORS.cyan}
-            />
-          </View>
-
-          <View style={styles.batteryGaugeWrapper}>
-            <View style={styles.batteryGauge}>
-              <Text style={[styles.batteryPercent, { color: COLORS.green }]}>
-                {gridData.batteryLevelPct.toFixed(1)}%
-              </Text>
-            </View>
-            <View style={styles.batteryInfoCol}>
-              <View style={styles.batteryInfoBox}>
-                <Text style={styles.batteryInfoLabel}>Capacity</Text>
-                <Text style={styles.batteryInfoVal}>100 MWh</Text>
-              </View>
-              <View style={styles.batteryInfoBox}>
-                <Text style={styles.batteryInfoLabel}>Status</Text>
-                <Text style={[styles.batteryInfoVal, { color: COLORS.green }]}>
-                  Active
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <EnergyBar
-            label="Storage Level"
-            percentage={gridData.batteryLevelPct}
-            color={COLORS.green}
-          />
-        </LinearGradient>
+      <View style={styles.heroSection}>
+        <Text style={styles.heroTitle}>G-Balancer Control Matrix</Text>
+        <Text style={styles.heroSubtitle}>Command Center · Live operations</Text>
       </View>
 
-      {/* Supply & Demand Grid */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Energy Balance</Text>
-        <View style={styles.gridRow}>
-          <StatBox
-            icon="power-socket"
-            label="Supply"
-            value={gridData.currentSupply.toFixed(1)}
-            unit="MW"
-            color={COLORS.cyan}
-          />
-          <StatBox
-            icon="lightning-bolt-outline"
-            label="Demand"
-            value={gridData.currentDemand.toFixed(1)}
-            unit="MW"
-            color={COLORS.yellow}
-          />
-        </View>
-
-        {/* Balance Status */}
-        <LinearGradient
-          colors={
-            balanceStatus
-              ? [COLORS.green + "20", COLORS.green + "10"]
-              : [COLORS.red + "20", COLORS.red + "10"]
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      <View style={styles.alertRow}>
+        <Animated.View
           style={[
-            styles.balanceCard,
-            { borderColor: balanceStatus ? COLORS.green : COLORS.red },
+            styles.pulseDot,
+            {
+              backgroundColor: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical,
+              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.85] }),
+            },
           ]}
-        >
-          <View style={styles.balanceContent}>
-            <MaterialCommunityIcons
-              name={balanceStatus ? "check-circle" : "alert-circle"}
-              size={24}
-              color={balanceStatus ? COLORS.green : COLORS.red}
-            />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text
-                style={[
-                  styles.balanceTitle,
-                  { color: balanceStatus ? COLORS.green : COLORS.red },
-                ]}
-              >
-                {balanceStatus ? "Grid Surplus" : "Grid Deficit"}
-              </Text>
-              <Text style={styles.balanceValue}>
-                {Math.abs(
-                  gridData.currentSupply - gridData.currentDemand,
-                ).toFixed(1)}{" "}
-                MW
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Renewable Energy */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Renewable Generation</Text>
-        <View style={styles.renewableRow}>
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.renewableBox}
-          >
-            <MaterialCommunityIcons
-              name="white-balance-sunny"
-              size={28}
-              color={COLORS.yellow}
-            />
-            <Text style={styles.renewableValue}>
-              {gridData.solarGenerationMw.toFixed(1)}
-            </Text>
-            <Text style={styles.renewableLabel}>Solar MW</Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.renewableBox}
-          >
-            <MaterialCommunityIcons
-              name="weather-windy"
-              size={28}
-              color={COLORS.cyan}
-            />
-            <Text style={styles.renewableValue}>
-              {gridData.windGenerationMw.toFixed(1)}
-            </Text>
-            <Text style={styles.renewableLabel}>Wind MW</Text>
-          </LinearGradient>
-        </View>
-
-        {/* Green Energy Percentage */}
-        <LinearGradient
-          colors={[COLORS.darkGrey, COLORS.grey]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.greenEnergyCard}
-        >
-          <View style={styles.greenEnergyHeader}>
-            <View>
-              <Text style={styles.greenEnergyLabel}>Current Surplus</Text>
-              <Text
-                style={[
-                  styles.greenEnergyValue,
-                  {
-                    color:
-                      gridData.currentSupply > gridData.currentDemand
-                        ? COLORS.green
-                        : COLORS.red,
-                  },
-                ]}
-              >
-                {(
-                  (gridData.currentSupply - gridData.currentDemand) *
-                  1000
-                ).toFixed(1)}{" "}
-                kWh
-              </Text>
-            </View>
-            <Text style={styles.greenEnergyEmoji}>
-              {gridData.currentSupply > gridData.currentDemand ? "⚡" : "⚠️"}
-            </Text>
-          </View>
-          <EnergyBar
-            label="Grid Balance"
-            percentage={Math.min(
-              Math.max(
-                ((gridData.currentSupply - gridData.currentDemand) / 10) * 100,
-                0,
-              ),
-              100,
-            )}
-            color={
-              gridData.currentSupply > gridData.currentDemand
-                ? COLORS.green
-                : COLORS.red
-            }
-          />
-        </LinearGradient>
-      </View>
-
-      {/* System Metrics */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>System Metrics</Text>
-        <View style={styles.metricsGrid}>
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.metricCard}
-          >
-            <Text style={styles.metricLabel}>Peak Demand</Text>
-            <Text style={[styles.metricValue, { color: COLORS.green }]}>
-              {(forecast.data?.summary?.peak_demand_mw ?? 0).toFixed(1)} MW
-            </Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.metricCard}
-          >
-            <Text style={styles.metricLabel}>Avg Demand</Text>
-            <Text style={[styles.metricValue, { color: COLORS.cyan }]}>
-              {(forecast.data?.summary?.avg_demand_mw ?? 0).toFixed(1)} MW
-            </Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.metricCard}
-          >
-            <Text style={styles.metricLabel}>Deficit Hours</Text>
-            <Text style={[styles.metricValue, { color: COLORS.yellow }]}>
-              {forecast.data?.summary?.hours_with_deficit ?? 0}h
-            </Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={[COLORS.darkGrey, COLORS.grey]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.metricCard}
-          >
-            <Text style={styles.metricLabel}>Surplus Hours</Text>
-            <Text style={[styles.metricValue, { color: COLORS.green }]}>
-              {forecast.data?.summary?.hours_with_surplus ?? 0}h
-            </Text>
-          </LinearGradient>
+        />
+        <View>
+          <Text style={[styles.statusTitle, { color: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}>
+            {isHealthy ? "GRID SURPLUS" : "GRID DEFICIT"}
+          </Text>
+          <Text style={styles.statusMessage}>Diff {balanceDelta} MW</Text>
         </View>
       </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>G-Balancer Energy Management</Text>
-        <Text style={styles.footerVersion}>v1.0.0</Text>
+      <View style={styles.overviewGrid}>
+        <MetricLabel icon="power-plug" label="Supply" value={gridData.currentSupply.toFixed(1)} unit="MW" color={INPUT_COLORS.cyan} />
+        <MetricLabel icon="flash" label="Demand" value={gridData.currentDemand.toFixed(1)} unit="MW" color={INPUT_COLORS.amber} />
+        <MetricLabel icon="battery" label="Battery" value={`${gridData.batteryLevelPct.toFixed(1)}%`} color={INPUT_COLORS.neon} />
+        <MetricLabel icon="leaf" label="Renewable" value={`${renewablePercent.toFixed(1)}%`} color={INPUT_COLORS.neon} />
+      </View>
+
+      <View style={styles.sectionPanel}>
+        <Text style={styles.sectionTitle}>Performance Blueprint</Text>
+        <View style={styles.rotateLayout}>
+          <View style={styles.smallPanel}>
+            <Text style={styles.panelLabel}>Solar Output</Text>
+            <Text style={styles.panelValue}>{gridData.solarGenerationMw.toFixed(1)} MW</Text>
+          </View>
+          <View style={styles.smallPanel}>
+            <Text style={styles.panelLabel}>Wind Output</Text>
+            <Text style={styles.panelValue}>{gridData.windGenerationMw.toFixed(1)} MW</Text>
+          </View>
+        </View>
+        <View style={styles.impactRow}>
+          <View style={styles.impactStat}>
+            <Text style={styles.impactHint}>Estimated Surplus</Text>
+            <Text style={styles.impactValue}>{((gridData.currentSupply - gridData.currentDemand) * 1000).toFixed(0)} kWh</Text>
+          </View>
+          <View style={[styles.impactStatus, { borderColor: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}> 
+            <Text style={[styles.impactCondition, { color: isHealthy ? INPUT_COLORS.neon : INPUT_COLORS.critical }]}>
+              {isHealthy ? "STABLE" : "CRITICAL"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.panelLegacy}>
+        <Text style={styles.sectionTitle}>Forecast Snapshot</Text>
+        <View style={styles.previewRow}>
+          <Text style={styles.previewLabel}>Peak demand</Text>
+          <Text style={styles.previewValue}>{(forecast.data?.summary?.peak_demand_mw ?? 0).toFixed(1)} MW</Text>
+        </View>
+        <View style={styles.previewRow}>
+          <Text style={styles.previewLabel}>Avg demand</Text>
+          <Text style={styles.previewValue}>{(forecast.data?.summary?.avg_demand_mw ?? 0).toFixed(1)} MW</Text>
+        </View>
+        <View style={styles.previewRow}>
+          <Text style={styles.previewLabel}>Deficit hours</Text>
+          <Text style={styles.previewValue}>{forecast.data?.summary?.hours_with_deficit ?? 0}h</Text>
+        </View>
+      </View>
+
+      <View style={styles.footer}> 
+        <Text style={styles.footerText}>Interface: G-Balancer Mobile Command</Text>
+        <Text style={styles.footerHint}>Updated: {new Date(gridData.updatedAt).toLocaleTimeString()}</Text>
       </View>
     </ScrollView>
   );
@@ -508,349 +183,225 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: INPUT_COLORS.background,
+    paddingTop: 10,
   },
-  loaderContainer: {
+  fullScreenCenter: {
     flex: 1,
+    backgroundColor: INPUT_COLORS.background,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.black,
   },
-  loaderText: {
-    marginTop: 16,
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.black,
-    paddingHorizontal: 20,
+  helperText: {
+    color: INPUT_COLORS.grey,
+    marginTop: 10,
   },
   errorTitle: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 16,
-  },
-  errorMessage: {
-    color: COLORS.lightGrey,
-    fontSize: 14,
-    marginTop: 8,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    paddingTop: 28,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  headerTitle: {
-    color: COLORS.white,
-    fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  headerSubtitle: {
-    color: COLORS.lightGrey,
-    fontSize: 12,
-    marginTop: 2,
-    letterSpacing: 0.3,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: COLORS.green + "15",
-    borderWidth: 1,
-    borderColor: COLORS.green + "40",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  updateText: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    marginTop: 12,
-    letterSpacing: 0.3,
-  },
-  section: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  sectionTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  gridRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-  },
-  statHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  statLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    fontWeight: "600",
-    marginLeft: 6,
-    letterSpacing: 0.3,
-  },
-  statContent: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  statUnit: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    marginLeft: 4,
-    fontWeight: "600",
-  },
-  batteryCard: {
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-  },
-  batteryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
-  },
-  batteryTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  batterySubtitle: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    marginTop: 2,
-    letterSpacing: 0.2,
-  },
-  batteryGaugeWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 14,
-  },
-  batteryGauge: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: COLORS.black + "40",
-    borderWidth: 2,
-    borderColor: COLORS.green,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  batteryPercent: {
-    fontSize: 26,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  batteryInfoCol: {
-    flex: 1,
-    gap: 10,
-  },
-  batteryInfoBox: {
-    backgroundColor: COLORS.black + "30",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-  },
-  batteryInfoLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  batteryInfoVal: {
-    color: COLORS.white,
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  energyBarContainer: {
-    marginTop: 6,
-    gap: 6,
-  },
-  energyBarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  energyBarLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  energyBarValue: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  energyBarBg: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  energyBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  balanceCard: {
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
-  },
-  balanceContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  balanceTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  balanceValue: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  renewableRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  renewableBox: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    alignItems: "center",
-    gap: 8,
-  },
-  renewableValue: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  renewableLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  greenEnergyCard: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    marginTop: 8,
-  },
-  greenEnergyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
-  },
-  greenEnergyLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    marginBottom: 2,
-  },
-  greenEnergyValue: {
+    color: INPUT_COLORS.critical,
+    fontWeight: "800",
     fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    marginTop: 8,
   },
-  greenEnergyEmoji: {
-    fontSize: 28,
+  errorText: {
+    color: INPUT_COLORS.grey,
+    marginTop: 6,
+    textAlign: "center",
   },
-  metricsGrid: {
+  heroSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  heroTitle: {
+    color: INPUT_COLORS.neon,
+    fontSize: 30,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  heroSubtitle: {
+    color: "#8A8A8A",
+    fontSize: 13,
+    marginTop: 4,
+    textTransform: "uppercase",
+  },
+  alertRow: {
+    backgroundColor: "#0f1418",
+    borderLeftWidth: 4,
+    borderLeftColor: INPUT_COLORS.neon,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  pulseDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  statusTitle: {
+    color: INPUT_COLORS.neon,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  statusMessage: {
+    color: INPUT_COLORS.grey,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
     gap: 10,
   },
-  metricCard: {
-    width: (width - 48) / 2,
-    borderRadius: 12,
-    padding: 12,
+  metricItem: {
+    width: "47%",
+    marginVertical: 6,
+    backgroundColor: INPUT_COLORS.panel,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.grey,
+    borderColor: INPUT_COLORS.panelBorder,
+    padding: 12,
   },
-  metricLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    marginBottom: 6,
+  metricIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   metricValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  metricUnit: {
+    color: INPUT_COLORS.grey,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  metricLabel: {
+    color: INPUT_COLORS.grey,
+    fontSize: 11,
+    marginTop: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  sectionPanel: {
+    backgroundColor: INPUT_COLORS.panel,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: INPUT_COLORS.panelBorder,
+    marginHorizontal: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    color: INPUT_COLORS.text,
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  rotateLayout: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 14,
+  },
+  smallPanel: {
+    flex: 1,
+    backgroundColor: "#151515",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#272727",
+    padding: 10,
+  },
+  panelLabel: {
+    color: INPUT_COLORS.grey,
+    fontSize: 10,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  panelValue: {
+    color: INPUT_COLORS.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  impactRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+  },
+  impactStat: {
+    flex: 1,
+  },
+  impactHint: {
+    color: INPUT_COLORS.grey,
+    fontSize: 10,
+    textTransform: "uppercase",
+  },
+  impactValue: {
+    color: INPUT_COLORS.text,
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  impactStatus: {
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  impactCondition: {
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  panelLegacy: {
+    marginHorizontal: 16,
+    marginBottom: 22,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: INPUT_COLORS.panelBorder,
+    padding: 14,
+    backgroundColor: INPUT_COLORS.panel,
+  },
+  previewRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  previewLabel: {
+    color: INPUT_COLORS.grey,
+    fontSize: 12,
+  },
+  previewValue: {
+    color: INPUT_COLORS.text,
+    fontSize: 14,
+    fontWeight: "800",
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.darkGrey,
+    padding: 14,
     alignItems: "center",
-    gap: 4,
+    marginBottom: 30,
   },
   footerText: {
-    color: COLORS.lightGrey,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.3,
+    color: INPUT_COLORS.grey,
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
   },
-  footerVersion: {
-    color: COLORS.grey,
+  footerHint: {
+    color: INPUT_COLORS.grey,
     fontSize: 10,
-    letterSpacing: 0.2,
   },
 });

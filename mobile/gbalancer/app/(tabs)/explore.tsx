@@ -1,497 +1,132 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Easing,
-  ImageBackground,
-  type ImageSourcePropType,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  type ViewStyle,
   View,
+  Text,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { ForecastBars } from "@/components/grid/forecast-bars";
-import { ThemedText } from "@/components/themed-text";
 import { useAdminSettings } from "@/features/admin/settings-context";
 import { useForecastData } from "@/features/grid/hooks";
 
 const COLORS = {
-  black: "#0B0B0B",
-  darkGrey: "#1A1A1A",
-  grey: "#2A2A2A",
-  lightGrey: "#3A3A3A",
-  green: "#00FF41",
-  cyan: "#00F0FF",
-  white: "#FFFFFF",
-  red: "#FF4444",
-  yellow: "#FFD700",
+  background: "#080808",
+  panel: "#0f0f0f",
+  panelBorder: "#202020",
+  text: "#E8E8E8",
+  neon: "#00ff87",
+  cyan: "#00f0ff",
+  orange: "#ffd700",
+  red: "#ff4444",
+  grey: "#9CA3AF",
 };
 
-const ADOBE_ELECTRICITY_PATTERN_IMAGE = {
-  uri: "https://as1.ftcdn.net/jpg/18/57/43/74/1000_F_1857437495_vF3Ij3xSvfpV0hVlwzhcguXjDUck4CDx.webp",
-} as const;
-
-interface ForecastCardProps {
-  title: string;
-  value: string;
-  unit: string;
-  icon: string;
-  hint: string;
-  color: string;
-  delay: number;
-  imageSource: ImageSourcePropType;
-  fallbackImageSource: ImageSourcePropType;
-  containerStyle?: ViewStyle;
-}
-
-const ForecastCard: React.FC<ForecastCardProps> = ({
-  title,
-  value,
-  unit,
-  icon,
-  hint,
-  color,
-  delay,
-  imageSource,
-  fallbackImageSource,
-  containerStyle,
-}) => {
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => {
-    Animated.stagger(delay, [
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.ease,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  const resolvedImageSource = imageFailed ? fallbackImageSource : imageSource;
-
-  return (
-    <Animated.View
-      style={[
-        styles.forecastCard,
-        containerStyle,
-        {
-          opacity: opacityAnim,
-          transform: [{ scale: scaleAnim }],
-        },
-      ]}
-    >
-      <ImageBackground
-        source={resolvedImageSource}
-        resizeMode="cover"
-        style={styles.forecastCardImageBg}
-        imageStyle={styles.forecastCardImage}
-        onError={() => setImageFailed(true)}
-      >
-        <LinearGradient
-          colors={["#050505F0", "#0B0B0BD9"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.forecastCardInner}
-        >
-          <View style={styles.forecastCardHeader}>
-            <MaterialCommunityIcons
-              name={icon as any}
-              size={24}
-              color={color}
-            />
-            <ThemedText style={styles.forecastCardTitle}>{title}</ThemedText>
-          </View>
-
-          <View style={styles.forecastCardContent}>
-            <ThemedText style={[styles.forecastCardValue, { color }]}>
-              {value}
-            </ThemedText>
-            <ThemedText style={styles.forecastCardUnit}>{unit}</ThemedText>
-          </View>
-
-          <ThemedText style={styles.forecastCardHint}>{hint}</ThemedText>
-        </LinearGradient>
-      </ImageBackground>
-    </Animated.View>
-  );
-};
+const MonitorCard = ({ label, value, change, icon, accent }: { label: string; value: string; change: string; icon: string; accent: string }) => (
+  <View style={[styles.monitorCard, { borderColor: accent }]}> 
+    <View style={styles.monitorHeader}>
+      <MaterialCommunityIcons name={icon as any} size={18} color={accent} />
+      <Text style={styles.monitorLabel}>{label}</Text>
+    </View>
+    <View style={styles.monitorBody}>
+      <Text style={[styles.monitorValue, { color: accent }]}>{value}</Text>
+      <Text style={styles.monitorChange}>{change}</Text>
+    </View>
+  </View>
+);
 
 export default function ForecastScreen() {
   const { settings } = useAdminSettings();
-  const forecast = useForecastData({
-    city: settings.city,
-    hours: settings.forecastHours,
-  });
-  const scrollAnim = useRef(new Animated.Value(0)).current;
+  const forecast = useForecastData({ city: settings.city, hours: settings.forecastHours });
+  const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Safe point access with fallback
   const nextPoint = forecast.data?.points[0];
   const sixthPoint = forecast.data?.points[5];
-
-  // Calculate day-level balance as aggregate of all 24 hours (or available hours)
-  // This prevents deflection caused by using single unstable points
   const points = forecast.data?.points ?? [];
   const daySupplyTotal = points.reduce((sum, p) => sum + (p.supply ?? 0), 0);
   const dayDemandTotal = points.reduce((sum, p) => sum + (p.demand ?? 0), 0);
   const dayDelta = (daySupplyTotal - dayDemandTotal).toFixed(1);
 
-  const nextDelta = (
-    (nextPoint?.supply ?? 0) - (nextPoint?.demand ?? 0)
-  ).toFixed(1);
-  const sixthDelta = (
-    (sixthPoint?.supply ?? 0) - (sixthPoint?.demand ?? 0)
-  ).toFixed(1);
+  const nextDelta = ((nextPoint?.supply ?? 0) - (nextPoint?.demand ?? 0)).toFixed(1);
+  const sixthDelta = ((sixthPoint?.supply ?? 0) - (sixthPoint?.demand ?? 0)).toFixed(1);
 
   const isNextSurplus = parseFloat(nextDelta) > 0;
   const isSixthSurplus = parseFloat(sixthDelta) > 0;
   const isDaySurplus = parseFloat(dayDelta) > 0;
 
-  // Extract summary data with proper typing
   const peakDemand = forecast.data?.summary?.peak_demand_mw ?? 0;
-  const minDemand = forecast.data?.summary?.min_demand_mw ?? 0;
   const avgDemand = forecast.data?.summary?.avg_demand_mw ?? 0;
+  const minDemand = forecast.data?.summary?.min_demand_mw ?? 0;
   const city = forecast.data?.city ?? "Grid";
 
   return (
     <ScrollView
+      style={styles.wrap}
       contentContainerStyle={styles.container}
-      onScroll={Animated.event(
-        [{ nativeEvent: { contentOffset: { y: scrollAnim } } }],
-        {
-          useNativeDriver: false,
-        },
-      )}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
       refreshControl={
         <RefreshControl
           refreshing={forecast.loading}
           onRefresh={() => forecast.refresh()}
-          tintColor={COLORS.green}
-          colors={[COLORS.green]}
-          progressBackgroundColor={COLORS.darkGrey}
+          tintColor={COLORS.neon}
+          colors={[COLORS.neon]}
+          progressBackgroundColor={COLORS.panel}
         />
       }
     >
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.black]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View>
-            <ThemedText style={styles.headerTitle}>Energy Forecast</ThemedText>
-            <ThemedText style={styles.headerSubtitle}>
-              24-hour prediction
-            </ThemedText>
-            {city !== "Grid" && (
-              <ThemedText style={styles.headerCity}>{city}</ThemedText>
-            )}
-          </View>
-          <MaterialCommunityIcons
-            name="chart-line"
-            size={32}
-            color={COLORS.cyan}
-          />
+      <View style={styles.heroCard}>
+        <View style={styles.heroTextGroup}>
+          <Text style={styles.heroTitle}>Forecast Control</Text>
+          <Text style={styles.heroSubtitle}>{city} 24h Timeline</Text>
         </View>
-      </LinearGradient>
+        <MaterialCommunityIcons name="chart-line" size={30} color={COLORS.cyan} />
+      </View>
 
       {forecast.loading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <ThemedText style={styles.loaderText}>
-            Computing forecast...
-          </ThemedText>
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator size="large" color={COLORS.neon} />
+          <Text style={styles.loadingText}>Analyzing demand curves...</Text>
         </View>
       )}
 
       {!!forecast.error && (
-        <LinearGradient
-          colors={[COLORS.red + "20", COLORS.red + "10"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.errorCard, { borderColor: COLORS.red }]}
-        >
-          <View style={styles.errorHeader}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={20}
-              color={COLORS.red}
-            />
-            <ThemedText style={[styles.errorTitle, { color: COLORS.red }]}>
-              Forecast Error
-            </ThemedText>
-          </View>
-          <ThemedText style={styles.errorMessage}>{forecast.error}</ThemedText>
-        </LinearGradient>
+        <View style={[styles.statusAlert, { borderColor: COLORS.red }]}> 
+          <Text style={[styles.alertText, { color: COLORS.red }]}>Forecast error</Text>
+          <Text style={styles.alertDetail}>{forecast.error}</Text>
+        </View>
       )}
 
       {!forecast.loading && !forecast.error && (
         <>
-          {/* Quick Metrics */}
-          <View style={styles.metricsSection}>
-            <View style={styles.metricsTopRow}>
-              <ForecastCard
-                title="Next Hour"
-                value={nextDelta}
-                unit="MW"
-                icon={isNextSurplus ? "flash" : "alert"}
-                hint={isNextSurplus ? "Surplus expected" : "Deficit expected"}
-                color={isNextSurplus ? COLORS.green : COLORS.yellow}
-                delay={0}
-                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
-                fallbackImageSource={require("../../assets/images/android-icon-background.png")}
-                containerStyle={styles.metricsTopCard}
-              />
-            </View>
+          <View style={styles.longGrid}>
+            <MonitorCard label="24h Delta" value={`${dayDelta} MW`} change={isDaySurplus ? "Surplus" : "Deficit"} icon="flash" accent={isDaySurplus ? COLORS.neon : COLORS.orange} />
+            <MonitorCard label="Peak Demand" value={`${peakDemand.toFixed(1)} MW`} change="max" icon="arrow-up-bold" accent={COLORS.red} />
+          </View>
 
-            <View style={styles.metricsBottomRow}>
-              <ForecastCard
-                title="6 Hours"
-                value={sixthDelta}
-                unit="MW"
-                icon={
-                  isSixthSurplus ? "lightning-bolt" : "lightning-bolt-outline"
-                }
-                hint={isSixthSurplus ? "Strong surplus" : "Potential deficit"}
-                color={isSixthSurplus ? COLORS.green : COLORS.yellow}
-                delay={100}
-                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
-                fallbackImageSource={require("../../assets/images/icon.png")}
-                containerStyle={styles.metricsBottomCard}
-              />
-              <ForecastCard
-                title="24 Hours"
-                value={dayDelta}
-                unit="MW"
-                icon={isDaySurplus ? "check-circle" : "close-circle"}
-                hint={isDaySurplus ? "Day-level surplus" : "Day-level deficit"}
-                color={isDaySurplus ? COLORS.green : COLORS.red}
-                delay={200}
-                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
-                fallbackImageSource={require("../../assets/images/splash-icon.png")}
-                containerStyle={styles.metricsBottomCard}
-              />
+          <View style={styles.longGrid}>
+            <MonitorCard label="Avg Demand" value={`${avgDemand.toFixed(1)} MW`} change="trend" icon="chart-areaspline" accent={COLORS.cyan} />
+            <MonitorCard label="Min Demand" value={`${minDemand.toFixed(1)} MW`} change="floor" icon="arrow-down-bold" accent={COLORS.neon} />
+          </View>
+
+          <View style={styles.timeSlice}>
+            <View style={styles.timeCard}>
+              <Text style={styles.timeLabel}>Next 1h</Text>
+              <Text style={[styles.timeDelta, { color: isNextSurplus ? COLORS.neon : COLORS.orange }]}>{`${nextDelta} MW`}</Text>
+              <Text style={styles.timeState}>{isNextSurplus ? "Surplus window" : "Deficit window"}</Text>
+            </View>
+            <View style={styles.timeCard}>
+              <Text style={styles.timeLabel}>+6h</Text>
+              <Text style={[styles.timeDelta, { color: isSixthSurplus ? COLORS.neon : COLORS.orange }]}>{`${sixthDelta} MW`}</Text>
+              <Text style={styles.timeState}>{isSixthSurplus ? "Surplus" : "Deficit"}</Text>
             </View>
           </View>
 
-          {/* Demand Summary */}
-          <View style={styles.summarySection}>
-            <LinearGradient
-              colors={[COLORS.darkGrey, COLORS.grey]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.summaryCard}
-            >
-              <View style={styles.summaryHeader}>
-                <ThemedText style={styles.summaryTitle}>
-                  Demand Summary
-                </ThemedText>
-                <MaterialCommunityIcons
-                  name="information-outline"
-                  size={20}
-                  color={COLORS.cyan}
-                />
-              </View>
-
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryItem}>
-                  <ThemedText style={styles.summaryLabel}>
-                    Peak Demand
-                  </ThemedText>
-                  <ThemedText
-                    style={[styles.summaryValue, { color: COLORS.red }]}
-                  >
-                    {peakDemand.toFixed(0)}
-                  </ThemedText>
-                  <ThemedText style={styles.summaryUnit}>MW</ThemedText>
-                </View>
-
-                <View style={styles.summaryItem}>
-                  <ThemedText style={styles.summaryLabel}>
-                    Min Demand
-                  </ThemedText>
-                  <ThemedText
-                    style={[styles.summaryValue, { color: COLORS.green }]}
-                  >
-                    {minDemand.toFixed(0)}
-                  </ThemedText>
-                  <ThemedText style={styles.summaryUnit}>MW</ThemedText>
-                </View>
-
-                <View style={styles.summaryItem}>
-                  <ThemedText style={styles.summaryLabel}>
-                    Avg Demand
-                  </ThemedText>
-                  <ThemedText
-                    style={[styles.summaryValue, { color: COLORS.yellow }]}
-                  >
-                    {avgDemand.toFixed(0)}
-                  </ThemedText>
-                  <ThemedText style={styles.summaryUnit}>MW</ThemedText>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-          <View style={styles.chartSection}>
-            <LinearGradient
-              colors={[COLORS.darkGrey, COLORS.grey]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.chartCard}
-            >
-              <View style={styles.chartHeader}>
-                <ThemedText style={styles.chartTitle}>
-                  Supply vs Demand
-                </ThemedText>
-                <MaterialCommunityIcons
-                  name="chart-box-outline"
-                  size={20}
-                  color={COLORS.cyan}
-                />
-              </View>
-              <ForecastBars points={forecast.data?.points ?? []} />
-              <View style={styles.chartLegend}>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: COLORS.green },
-                    ]}
-                  />
-                  <ThemedText style={styles.legendLabel}>Supply</ThemedText>
-                </View>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[styles.legendDot, { backgroundColor: COLORS.red }]}
-                  />
-                  <ThemedText style={styles.legendLabel}>Demand</ThemedText>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* Detailed Points */}
-          <View style={styles.detailsSection}>
-            <LinearGradient
-              colors={[COLORS.darkGrey, COLORS.grey]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.detailsCard}
-            >
-              <View style={styles.detailsHeader}>
-                <ThemedText style={styles.detailsTitle}>
-                  Upcoming Points
-                </ThemedText>
-                <MaterialCommunityIcons
-                  name="list-box-outline"
-                  size={20}
-                  color={COLORS.cyan}
-                />
-              </View>
-
-              {(forecast.data?.points ?? [])
-                .slice(0, 12)
-                .map((point, index) => {
-                  const time = new Date(point.timestamp).toLocaleTimeString(
-                    [],
-                    {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    },
-                  );
-                  const delta = (point.supply - point.demand).toFixed(1);
-                  const isSurplus = parseFloat(delta) > 0;
-
-                  return (
-                    <View key={point.timestamp} style={styles.pointRow}>
-                      <View style={styles.pointTime}>
-                        <ThemedText style={styles.pointTimeText}>
-                          {time}
-                        </ThemedText>
-                      </View>
-
-                      <View style={styles.pointBars}>
-                        <View style={styles.pointBar}>
-                          <View
-                            style={[
-                              styles.pointBarFill,
-                              {
-                                width: `${Math.min(
-                                  (point.supply / 500) * 100,
-                                  100,
-                                )}%`,
-                                backgroundColor: COLORS.green,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <ThemedText style={styles.pointValue}>
-                          {point.supply.toFixed(0)} MW
-                        </ThemedText>
-                      </View>
-
-                      <View style={styles.pointBars}>
-                        <View style={styles.pointBar}>
-                          <View
-                            style={[
-                              styles.pointBarFill,
-                              {
-                                width: `${Math.min(
-                                  (point.demand / 500) * 100,
-                                  100,
-                                )}%`,
-                                backgroundColor: COLORS.red,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <ThemedText style={styles.pointValue}>
-                          {point.demand.toFixed(0)} MW
-                        </ThemedText>
-                      </View>
-
-                      <View
-                      // style={[
-                      //   styles.deltaBox,
-                      //   {
-                      //     backgroundColor: isSurplus
-                      //       ? COLORS.green + "20"
-                      //       : COLORS.red + "20",
-                      //     borderColor: isSurplus ? COLORS.green : COLORS.red,
-                      //   },
-                      // ]}
-                      >
-                        <ThemedText
-                          style={[
-                            styles.deltaValue,
-                            {
-                              color: isSurplus ? COLORS.green : COLORS.red,
-                            },
-                          ]}
-                        >
-                          {isSurplus ? "+" : ""}
-                          {delta}
-                        </ThemedText>
-                      </View>
-                    </View>
-                  );
-                })}
-            </LinearGradient>
+          <View style={styles.explainPanel}>
+            <Text style={styles.sectionTitle}>Action Threshold</Text>
+            <Text style={styles.sectionBody}>Adjust dispatch when deficit exceeds 10% for 3+ hours; maintain reserve targets in peak windows.</Text>
           </View>
         </>
       )}
@@ -500,309 +135,150 @@ export default function ForecastScreen() {
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   container: {
-    paddingBottom: 28,
-    backgroundColor: COLORS.black,
+    padding: 16,
+    paddingBottom: 30,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    paddingTop: 28,
-    gap: 8,
-  },
-  headerContent: {
+  heroCard: {
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+    borderRadius: 16,
+    padding: 14,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    marginBottom: 14,
   },
-  headerTitle: {
-    color: COLORS.white,
+  heroTextGroup: {
+    flex: 1,
+  },
+  heroTitle: {
+    color: COLORS.neon,
     fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontWeight: "900",
   },
-  headerSubtitle: {
-    color: COLORS.lightGrey,
-    fontSize: 12,
+  heroSubtitle: {
+    color: COLORS.grey,
     marginTop: 2,
-    letterSpacing: 0.3,
+    fontSize: 12,
+    textTransform: "uppercase",
   },
-  headerCity: {
-    color: COLORS.cyan,
-    fontSize: 11,
-    marginTop: 4,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
+  loadingBlock: {
     alignItems: "center",
-    paddingVertical: 60,
+    justifyContent: "center",
+    paddingVertical: 38,
   },
-  loaderText: {
-    marginTop: 16,
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "600",
+  loadingText: {
+    color: COLORS.grey,
+    marginTop: 8,
+    fontSize: 12,
   },
-  errorCard: {
-    marginHorizontal: 14,
-    marginTop: 12,
+  statusAlert: {
+    borderWidth: 1,
     borderRadius: 12,
+    backgroundColor: "#2f1a1c",
     padding: 12,
-    borderWidth: 1,
-    gap: 8,
+    marginBottom: 12,
   },
-  errorHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  alertText: {
+    fontSize: 14,
+    fontWeight: "800",
   },
-  errorTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  errorMessage: {
-    color: COLORS.lightGrey,
+  alertDetail: {
+    color: COLORS.grey,
+    marginTop: 4,
     fontSize: 12,
   },
-  metricsSection: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  metricsTopRow: {
-    alignItems: "stretch",
-  },
-  metricsBottomRow: {
+  longGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
+    marginBottom: 10,
   },
-  metricsTopCard: {
-    width: "100%",
-  },
-  metricsBottomCard: {
-    flex: 1,
-  },
-  forecastCard: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  forecastCardImageBg: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  forecastCardImage: {
-    opacity: 1,
-  },
-  forecastCardInner: {
+  monitorCard: {
+    width: "48%",
     borderWidth: 1,
-    borderColor: COLORS.grey,
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
+    borderRadius: 14,
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.neon,
+    padding: 10,
   },
-  forecastCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  forecastCardTitle: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
-  forecastCardContent: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  forecastCardValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  forecastCardUnit: {
-    color: COLORS.lightGrey,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  forecastCardHint: {
-    color: COLORS.lightGrey,
-    fontSize: 10,
-    fontWeight: "500",
-    letterSpacing: 0.2,
-  },
-  chartSection: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  chartCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    padding: 14,
-    gap: 12,
-  },
-  chartHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  chartTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  chartLegend: {
-    flexDirection: "row",
-    gap: 20,
-    justifyContent: "center",
-  },
-  legendItem: {
+  monitorHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    color: COLORS.lightGrey,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  detailsSection: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  detailsCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    padding: 14,
-    gap: 10,
-  },
-  detailsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 8,
   },
-  detailsTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  pointRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.grey,
-    gap: 10,
-  },
-  pointTime: {
-    width: 50,
-  },
-  pointTimeText: {
-    color: COLORS.cyan,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  pointBars: {
-    flex: 1,
-    gap: 4,
-  },
-  pointBar: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.darkGrey,
-    overflow: "hidden",
-  },
-  pointBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  pointValue: {
-    color: COLORS.lightGrey,
-    fontSize: 9,
-    fontWeight: "600",
-  },
-  deltaBox: {
-    width: 60,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    alignItems: "center",
-  },
-  deltaValue: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  summarySection: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  summaryCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    padding: 14,
-    gap: 12,
-  },
-  summaryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  summaryTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  summaryItem: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.grey,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    gap: 4,
-  },
-  summaryLabel: {
-    color: COLORS.lightGrey,
+  monitorLabel: {
+    color: COLORS.grey,
     fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  summaryValue: {
-    fontSize: 18,
+    textTransform: "uppercase",
     fontWeight: "700",
-    letterSpacing: 0.3,
   },
-  summaryUnit: {
-    color: COLORS.lightGrey,
-    fontSize: 9,
-    fontWeight: "600",
+  monitorBody: {
+    alignItems: "flex-start",
+  },
+  monitorValue: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  monitorChange: {
+    color: COLORS.grey,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  timeSlice: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  },
+  timeCard: {
+    width: "48%",
+    backgroundColor: COLORS.panel,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+    padding: 12,
+  },
+  timeLabel: {
+    color: COLORS.grey,
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  timeDelta: {
+    fontSize: 20,
+    fontWeight: "900",
+    marginTop: 6,
+  },
+  timeState: {
+    color: COLORS.grey,
+    marginTop: 4,
+    fontSize: 10,
+  },
+  explainPanel: {
+    marginTop: 10,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+  },
+  sectionTitle: {
+    color: COLORS.neon,
+    fontWeight: "800",
+    fontSize: 12,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  sectionBody: {
+    color: COLORS.grey,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });
