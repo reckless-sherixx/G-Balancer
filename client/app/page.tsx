@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -33,11 +34,19 @@ const SplitText = ({ children, className = "" }: { children: string; className?:
   );
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function Home() {
   const container = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+
     const lenis = new Lenis();
     lenis.on('scroll', ScrollTrigger.update);
     gsap.ticker.add((time) => {
@@ -45,6 +54,7 @@ export default function Home() {
     });
     gsap.ticker.lagSmoothing(0);
     return () => {
+      window.removeEventListener("scroll", handleScroll);
       lenis.destroy();
     };
   }, []);
@@ -247,17 +257,15 @@ export default function Home() {
     <div ref={container} className="bg-[#0B0B0B] text-white min-h-screen font-sans overflow-x-hidden selection:bg-[#00FF41] selection:text-black">
       
       {/* NAVBAR */}
-      <nav className="fixed top-0 left-0 w-full z-50 px-6 md:px-12 lg:px-24 py-6 flex items-center justify-between mix-blend-difference">
+      <nav className={`fixed top-0 left-0 w-full z-50 px-6 md:px-12 lg:px-24 transition-all duration-300 flex items-center justify-between ${scrolled ? 'py-4 bg-black/70 backdrop-blur-md border-b border-[#222]' : 'py-6 bg-transparent mix-blend-difference'}`}>
         <div className="text-xl font-bold tracking-tighter">G-Balancer</div>
         
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide uppercase text-white/70">
-            <a href="#" className="hover:text-white transition-colors">Platform</a>
-            <a href="#" className="hover:text-white transition-colors">Technology</a>
-            <a href="#" className="hover:text-white transition-colors">Docs</a>
-            <button className="px-5 py-2.5 bg-white text-black font-semibold hover:scale-105 will-change-transform transition-transform">
+            <a href={`${API_URL}/docs`} className="hover:text-white transition-colors">Docs</a>
+            <Link href="/dashboard" className="px-5 py-2.5 bg-white text-black font-semibold hover:scale-105 will-change-transform transition-transform text-center inline-block">
               Get Started
-            </button>
+            </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -272,12 +280,10 @@ export default function Home() {
 
       {/* Mobile Menu Overlay */}
       <div className={`fixed inset-0 z-40 bg-[#050505] flex flex-col items-center justify-center gap-10 text-2xl uppercase tracking-widest transition-transform duration-500 ease-[cubic-bezier(0.7,0,0.3,1)] ${menuOpen ? 'translate-y-0' : '-translate-y-full'}`}>
-          <a href="#" className="hover:text-[#00FF41] transition-colors" onClick={() => setMenuOpen(false)}>Platform</a>
-          <a href="#" className="hover:text-[#00FF41] transition-colors" onClick={() => setMenuOpen(false)}>Technology</a>
-          <a href="#" className="hover:text-[#00FF41] transition-colors" onClick={() => setMenuOpen(false)}>Docs</a>
-          <button className="mt-8 px-8 py-4 bg-white text-black font-bold text-lg" onClick={() => setMenuOpen(false)}>
+          <a href={`${API_URL}/docs`} className="hover:text-[#00FF41] transition-colors" onClick={() => setMenuOpen(false)}>Docs</a>
+          <Link href="/dashboard" className="mt-8 px-8 py-4 bg-white text-black font-bold text-lg" onClick={() => setMenuOpen(false)}>
             Get Started
-          </button>
+          </Link>
       </div>
 
       {/* 1. HERO SECTION */}
@@ -302,19 +308,19 @@ export default function Home() {
           </p>
           
           <div className="hero-fade mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 w-full sm:w-max">
-            <button className="group relative px-6 md:px-8 py-4 bg-white text-black font-semibold uppercase tracking-wider text-sm transition-transform hover:scale-105 will-change-transform flex items-center justify-center gap-3">
-              Deploy Protocol
+            <Link href="/dashboard" className="group relative px-6 md:px-8 py-4 bg-white text-black font-semibold uppercase tracking-wider text-sm transition-transform hover:scale-105 will-change-transform flex items-center justify-center gap-3">
+              Get Started
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button className="px-6 md:px-8 py-4 bg-transparent text-white font-semibold uppercase tracking-wider text-sm border border-[#333] hover:border-white transition-colors flex items-center justify-center">
+            </Link>
+            <a href={`${API_URL}/docs`} className="px-6 md:px-8 py-4 bg-transparent text-white font-semibold uppercase tracking-wider text-sm border border-[#333] hover:border-white transition-colors flex items-center justify-center">
               Read Docs
-            </button>
+            </a>
           </div>
         </div>
 
         {/* Right Visual (Abstract Architecture) */}
-        <div className="hero-visual-wrapper hidden lg:flex w-1/2 h-full absolute right-0 top-0 items-center justify-end pr-12 xl:pr-24 pointer-events-none mix-blend-screen">
-          <div className="relative w-[400px] xl:w-[500px] h-[500px] xl:h-[600px] flex items-end justify-between gap-3 xl:gap-4">
+        <div className="hero-visual-wrapper hidden lg:flex w-1/2 h-full absolute right-0 top-0 items-center justify-end pr-12 xl:pr-24 pointer-events-none mix-blend-screen opacity-70 mt-16">
+          <div className="relative w-[300px] xl:w-[400px] h-[350px] xl:h-[450px] flex items-end justify-between gap-3 xl:gap-4">
             {/* Generating an abstract techy cityscape/grid of energy columns */}
             {[40, 70, 30, 90, 50, 80, 20, 100].map((h, i) => (
               <div key={i} className="hero-visual-block relative w-8 xl:w-12 bg-[#1A1A1A] border-t border-[#333]" style={{ height: `${h}%` }}>

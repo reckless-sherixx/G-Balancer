@@ -1,19 +1,31 @@
 "use client";
 
-import { Bell, MapPin, User, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Bell, MapPin, User, CheckCircle2, AlertTriangle, XCircle, Menu } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/utils/cn";
 
-export function Topbar() {
+export function Topbar({ 
+  isMobileOpen, 
+  setIsMobileOpen 
+}: { 
+  isMobileOpen?: boolean; 
+  setIsMobileOpen?: (val: boolean) => void; 
+}) {
   const [city, setCity] = useState("Bangalore");
   const [gridStatus, setGridStatus] = useState<"LIVE" | "WARNING" | "CRITICAL">("LIVE");
 
   return (
-    <header className="fixed top-0 left-0 w-full h-20 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#222] z-40 pl-[280px] lg:pl-[280px] flex items-center justify-between px-8" style={{ paddingLeft: 'calc(var(--sidebar-width, 280px) + 2rem)' }}>
+    <header className="fixed top-0 w-full h-20 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#222] z-30 flex items-center justify-between px-4 sm:px-6 md:px-8 transition-all duration-300 md:pl-[300px]" style={{ paddingLeft: 'calc(var(--sidebar-width, 0px) + 1rem)' }}>
       {/* Current Context */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-3 sm:gap-6">
+        <button 
+          className="md:hidden p-2 -ml-2 text-white/70 hover:text-white"
+          onClick={() => setIsMobileOpen?.(!isMobileOpen)}
+        >
+          <Menu className="w-6 h-6" />
+        </button>
         {/* City Selector */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-[#111] rounded-lg border border-[#222] cursor-pointer hover:border-[#444] transition-colors">
+        <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-[#111] rounded-lg border border-[#222] cursor-pointer hover:border-[#444] transition-colors">
           <MapPin className="w-4 h-4 text-[#00FF41]" />
           <span className="text-sm font-semibold tracking-wide">{city} Grid</span>
         </div>

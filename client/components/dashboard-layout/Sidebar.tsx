@@ -7,7 +7,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { 
   LayoutDashboard, Map, LineChart, Cpu, 
-  Leaf, Bell, Settings, ChevronLeft, ChevronRight 
+  Leaf, Bell, Settings, ChevronLeft, ChevronRight, X
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -21,7 +21,13 @@ const navItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ 
+  isMobileOpen, 
+  setIsMobileOpen 
+}: { 
+  isMobileOpen?: boolean; 
+  setIsMobileOpen?: (val: boolean) => void; 
+}) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const container = useRef<HTMLElement>(null);
@@ -47,7 +53,10 @@ export function Sidebar() {
   return (
     <aside 
       ref={container}
-      className="fixed left-0 top-0 h-screen bg-[#0A0A0A] border-r border-[#222] z-50 flex flex-col pt-6 pb-6"
+      className={cn(
+        "fixed left-0 top-0 h-screen bg-[#0A0A0A] border-r border-[#222] z-50 flex flex-col pt-6 pb-6 transition-transform duration-300 md:translate-x-0",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}
       style={{ width: "280px" }}
     >
       {/* Brand */}
@@ -58,6 +67,12 @@ export function Sidebar() {
           </div>
           <span className="nav-label text-xl font-bold tracking-tighter mix-blend-difference">Balancer</span>
         </div>
+        <button 
+          className="md:hidden p-1 text-white/50 hover:text-white"
+          onClick={() => setIsMobileOpen?.(false)}
+        >
+          <X className="w-6 h-6" />
+        </button>
       </div>
 
       {/* Nav Menu */}
@@ -83,7 +98,7 @@ export function Sidebar() {
       </nav>
 
       {/* Toggle Button */}
-      <div className="px-4 mt-auto">
+      <div className="hidden md:block px-4 mt-auto">
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="w-full flex items-center justify-center py-3 bg-[#111] border border-[#222] hover:bg-[#1a1a1a] rounded-lg transition-colors group"
