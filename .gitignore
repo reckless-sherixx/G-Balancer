@@ -84,10 +84,12 @@ out/
 dist/
 
 # ML/Data
-*.pkl
-*.joblib
-*.pt
-*.pth
+# Note: Model files in backend/ml/models/ are tracked
+# Only exclude raw/processed data directories
+# *.pkl
+# *.joblib
+# *.pt
+# *.pth
 ml/data/raw/
 ml/data/processed/
 backend/ml/data/raw/
