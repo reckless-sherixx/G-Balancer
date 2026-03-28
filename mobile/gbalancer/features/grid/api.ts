@@ -212,39 +212,6 @@ type SimulateResponse = {
   battery_pct: number[];
 };
 
-function buildPredictBody(input: PredictRequest) {
-  const baseDemand = 22;
-  const solar = Array.from({ length: 24 }, (_, hour) => Math.max(0, 8 * Math.sin(((hour - 6) / 12) * Math.PI)));
-  const wind = Array.from({ length: 24 }, (_, hour) => 4 + 2 * Math.cos((hour / 24) * 2 * Math.PI));
-
-  const demand = Array.from({ length: 24 }, (_, hour) => {
-    const stressEffect = input.gridStress * (hour >= 17 && hour <= 22 ? 7 : 3);
-    const dailyEffect = hour >= 17 && hour <= 22 ? 8 : 0;
-    return baseDemand + dailyEffect + stressEffect - input.forecastedSurplus * 0.05;
-  });
-
-  // Create battery array matching demand length
-  const battery = Array.from({ length: 24 }, () => input.batteryLevelPct);
-
-  const body = {
-    solar_output_kwh: solar,
-    wind_output_kwh: wind,
-    demand_kwh: demand,
-    battery_pct: battery,
-    battery_level_pct: input.batteryLevelPct,
-    forecast_horizon_hours: 6,
-  };
-
-  console.log('   ✅ Built prediction body:');
-  console.log(`      Solar hours: ${solar.length} points`);
-  console.log(`      Wind hours: ${wind.length} points`);
-  console.log(`      Demand hours: ${demand.length} points`);
-  console.log(`      Battery hours: ${battery.length} points`);
-  console.log(`      First hour - Solar: ${solar[0].toFixed(2)}, Wind: ${wind[0].toFixed(2)}, Demand: ${demand[0].toFixed(2)}`);
-
-  return body;
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     const url = `${API_BASE_URL}${path}`;
@@ -364,7 +331,15 @@ export async function getPrediction(input: PredictRequest): Promise<PredictRespo
   
   try {
     console.log('   Step 1: Building predict body...');
-    const body = buildPredictBody(input);
+    const now = new Date();
+    const day = now.getDay();
+    const body = {
+      forecasted_surplus: input.forecastedSurplus,
+      battery_level_pct: input.batteryLevelPct,
+      grid_stress: input.gridStress,
+      hour_of_day: now.getHours(),
+      is_weekend: day === 0 || day === 6 ? 1 : 0,
+    };
     console.log(`   ✅ Built body successfully`);
 
     console.log('   Step 2: Serializing body to JSON...');

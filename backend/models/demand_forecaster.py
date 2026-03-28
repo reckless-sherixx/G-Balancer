@@ -337,7 +337,12 @@ def predict_solar(hour: int, day_of_week: int, month: int,
 def predict_wind(wind_speed: float) -> float:
     """
     Predict wind generation from wind speed.
-    Uses physics-based power curve: P = k * v^3 (wind speed cut-in/cut-out limits).
+    Uses an aggregate regional wind-fleet power curve.
+
+    Note:
+        This backend models city-scale/region-scale wind output (not a single turbine).
+        A strict single-turbine cut-in can produce persistent 0 MW in calm conditions,
+        so we use a softer low-speed ramp to avoid unrealistically flat zero output.
     
     Args:
         wind_speed: Wind speed in km/h
@@ -346,17 +351,23 @@ def predict_wind(wind_speed: float) -> float:
         Predicted wind generation in MW
     """
     wind_capacity = 800.0
-    wind_ms = wind_speed / 3.6
-    
-    # Wind turbine cut-in (3 m/s) and cut-out (25 m/s) speeds
-    if wind_ms < 3.0:
+    wind_ms = max(0.0, float(wind_speed) / 3.6)
+
+    # Fleet-level operating assumptions
+    cut_out_ms = 25.0
+    rated_ms = 12.0
+    soft_cut_in_ms = 1.5
+
+    if wind_ms >= cut_out_ms:
         return 0.0
-    if wind_ms > 25.0:
-        return 0.0
-    
-    # Power curve: cubic relationship to rated speed
-    # No random noise - predictions must be consistent and accurate across refreshes
-    power_factor = min((wind_ms / 14.0) ** 3, 1.0)
+
+    # Soft ramp below traditional cut-in to reflect geographically distributed sites.
+    if wind_ms < soft_cut_in_ms:
+        power_factor = 0.01 * (wind_ms / max(soft_cut_in_ms, 1e-6))
+    else:
+        # Cubic ramp to rated speed, then cap.
+        power_factor = min((wind_ms / rated_ms) ** 3, 1.0)
+
     wind_mw = wind_capacity * power_factor
     
     return max(0.0, round(float(wind_mw), 2))

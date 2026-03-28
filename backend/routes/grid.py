@@ -283,6 +283,25 @@ async def run_inference(city: str = Query(default=settings.DEFAULT_CITY),
 # ─── Helpers ──────────────────────────────────────────────────────────
 from schemas.grid_schema import GridStatus, GridAction, BatteryStatus
 
+
+def _normalize_alert_action(action: str, severity: str, title: str) -> GridAction:
+    """Coerce stale NO_ACTION alert records to meaningful actions for the UI."""
+    normalized_action = str(action or "").lower().strip()
+    if normalized_action and normalized_action != GridAction.NO_ACTION.value:
+        return GridAction(normalized_action)
+
+    normalized_title = str(title or "").lower()
+    normalized_severity = str(severity or "").lower()
+
+    if "battery storage critical" in normalized_title:
+        return GridAction.STORE_ENERGY
+    if "critical grid deficit" in normalized_title or normalized_severity == "critical":
+        return GridAction.DISCHARGE_BATTERY
+    if "supply warning" in normalized_title or normalized_severity in {"high", "medium"}:
+        return GridAction.DISCHARGE_BATTERY
+
+    return GridAction.NO_ACTION
+
 def _db_to_schema(r: GridStateDB) -> GridState:
     return GridState(
         timestamp=r.timestamp,
@@ -303,6 +322,7 @@ def _db_to_schema(r: GridStateDB) -> GridState:
 
 def _alert_db_to_schema(r: AlertDB) -> Alert:
     from schemas.grid_schema import AlertSeverity
+    normalized_action = _normalize_alert_action(r.recommended_action, r.severity, r.title)
     return Alert(
         id=r.id,
         timestamp=r.timestamp,
@@ -310,6 +330,6 @@ def _alert_db_to_schema(r: AlertDB) -> Alert:
         severity=AlertSeverity(r.severity),
         title=r.title,
         message=r.message,
-        recommended_action=GridAction(r.recommended_action),
+        recommended_action=normalized_action,
         is_resolved=r.is_resolved
     )

@@ -8,6 +8,7 @@ Docs at:   http://localhost:8000/docs
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +28,8 @@ from redis_keys import GRID_ALERTS, normalize_city
 
 # ─── Scheduled task: auto-balance every minute ────────────────────────
 scheduler = AsyncIOScheduler()
+_auto_battery_level_mwh: float = settings.BATTERY_CAPACITY_MWH * 0.5
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def _battery_status_from_action(action_value: str | None) -> str:
@@ -47,6 +50,8 @@ async def auto_balance_task():
     Runs every BALANCE_INTERVAL_SECONDS (default: 60s).
     """
     try:
+        global _auto_battery_level_mwh
+
         from services.weather_service import fetch_current_weather
         from models.demand_forecaster import predict_demand, predict_solar, predict_wind
         from services.grid_balancer import run_balancer, update_battery
@@ -54,28 +59,34 @@ async def auto_balance_task():
         from services.forecast_service import get_forecast_recommendations
         from database.db import AsyncSessionLocal, GridStateDB, AlertDB
 
-        now     = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        local_now = datetime.now(IST)
         weather = await fetch_current_weather()
 
         demand_mw = predict_demand(
-            hour=now.hour, day_of_week=now.weekday(), month=now.month,
+            hour=local_now.hour, day_of_week=local_now.weekday(), month=local_now.month,
             temperature=weather.temperature_c,
             cloud_cover=weather.cloud_cover_percent,
             wind_speed=weather.wind_speed_kmh,
             solar_irradiance=weather.solar_irradiance or 0
         )
         solar_mw       = predict_solar(
-            hour=now.hour, day_of_week=now.weekday(), month=now.month,
+            hour=local_now.hour, day_of_week=local_now.weekday(), month=local_now.month,
             temperature=weather.temperature_c,
             cloud_cover=weather.cloud_cover_percent,
             wind_speed=weather.wind_speed_kmh,
             solar_irradiance=weather.solar_irradiance or 0
         )
         wind_mw        = predict_wind(weather.wind_speed_kmh)
-        conventional   = max(0, demand_mw - solar_mw - wind_mw)
 
-        # Use a fixed battery level for the scheduler (simplified)
-        battery_mwh = settings.BATTERY_CAPACITY_MWH * 0.5
+        # Avoid perfectly balancing supply=demand every cycle so dashboard reflects
+        # real surplus/deficit dynamics from weather + time-of-day conditions.
+        peak_bias = 120.0 if 18 <= local_now.hour <= 22 else (-80.0 if 1 <= local_now.hour <= 5 else 0.0)
+        weather_bias = (weather.cloud_cover_percent * 1.8) - (weather.wind_speed_kmh * 0.9)
+        conventional_target = demand_mw * 0.58 + weather_bias + peak_bias
+        conventional = max(600.0, min(2800.0, conventional_target))
+
+        battery_mwh = _auto_battery_level_mwh
 
         state = run_balancer(
             current_demand_mw=demand_mw,
@@ -108,10 +119,23 @@ async def auto_balance_task():
         except Exception as e:
             print(f"  ⚠️  Forecast lookup failed: {e}, using current action")
 
+        # Persist battery evolution across scheduler ticks.
+        interval_hours = max(1e-6, settings.BALANCE_INTERVAL_SECONDS / 3600.0)
+        _auto_battery_level_mwh, battery_status = update_battery(
+            battery_level_mwh=_auto_battery_level_mwh,
+            action=battery_action,
+            net_balance_mw=state.net_balance_mw,
+            interval_hours=interval_hours,
+        )
+
+        # Reflect updated battery + forecast-informed action in persisted state.
+        state.battery_level_mwh = _auto_battery_level_mwh
+        state.battery_percentage = round((_auto_battery_level_mwh / settings.BATTERY_CAPACITY_MWH) * 100, 1)
+        state.battery_status = battery_status
+        if battery_action is not None:
+            state.recommended_action = battery_action
+
         async with AsyncSessionLocal() as db:
-            battery_status = _battery_status_from_action(
-                battery_action.value if battery_action else None
-            )
             db.add(GridStateDB(
                 timestamp=state.timestamp,
                 city=state.city,
@@ -123,7 +147,7 @@ async def auto_balance_task():
                 net_balance_mw=state.net_balance_mw,
                 battery_level_mwh=state.battery_level_mwh,
                 battery_percentage=state.battery_percentage,
-                battery_status=battery_status,
+                battery_status=state.battery_status.value,
                 grid_status=state.grid_status.value,
                 recommended_action=state.recommended_action.value,
                 action_description=state.action_description
@@ -194,6 +218,7 @@ async def lifespan(app: FastAPI):
     print(f"      ✅ Scheduler started (interval: {settings.BALANCE_INTERVAL_SECONDS}s)")
 
     print("   4️⃣  Connecting Redis...")
+    print(f"      🔎 Redis target: {redis_client.get_provider_name()}")
     redis_ok = await redis_client.connect()
     if redis_ok:
         print("      ✅ Redis connected")

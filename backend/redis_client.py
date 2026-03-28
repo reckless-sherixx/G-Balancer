@@ -21,14 +21,27 @@ class RedisClientManager:
         self.client: Optional[redis.Redis] = None
         self._connected = False
 
+    def get_provider_name(self) -> str:
+        """Return human-readable provider for current REDIS_URL."""
+        normalized = (self.url or "").strip().lower()
+        if "upstash.io" in normalized:
+            return "Upstash-hosted Redis"
+        if normalized.startswith("redis://localhost") or normalized.startswith("redis://127.0.0.1"):
+            return "Local Redis"
+        if normalized.startswith("redis://") or normalized.startswith("rediss://"):
+            return "Hosted Redis"
+        return "Unknown Redis provider"
+
     async def connect(self) -> bool:
         """Connect and ping Redis. Never raises; returns connection status."""
         try:
+            provider = self.get_provider_name()
+            logger.info("Redis provider configured: %s", provider)
             # decode_responses=True ensures string in/out payloads for JSON handling
             self.client = redis.from_url(self.url, decode_responses=True)
             await self.client.ping()
             self._connected = True
-            logger.info("✅ Redis connected: %s", self.url)
+            logger.info("✅ Redis connected using %s (%s)", provider, self.url)
             return True
         except Exception as exc:
             self._connected = False

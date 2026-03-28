@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, timezone
+import math
 
-from services import grid_balancer
 from services.weather_service import fetch_current_weather
-from models import demand_forecaster
 
 router = APIRouter(tags=["mobile"])
 
@@ -17,11 +16,70 @@ class GridStatusRequest(BaseModel):
 
 
 class PredictRequest(BaseModel):
-    solar_output_kwh: List[float]
-    wind_output_kwh: Optional[List[float]] = None
-    demand_kwh: List[float]
+    forecasted_surplus: float = Field(..., description="Forecasted surplus/deficit (kWh), can be negative")
     battery_level_pct: float = Field(..., ge=0, le=100)
-    forecast_horizon_hours: int = Field(6, gt=0)
+    grid_stress: float = Field(..., ge=0, le=1, description="0-1 normalized grid stress")
+    hour_of_day: Optional[int] = Field(default=None, ge=0, le=23)
+    is_weekend: Optional[int] = Field(default=None, ge=0, le=1)
+
+
+def _predict_action_from_logic(req: PredictRequest) -> dict:
+    """Deterministic backend decision logic for mobile action recommendations."""
+    now = datetime.now(timezone.utc)
+    hour = req.hour_of_day if req.hour_of_day is not None else now.hour
+    weekend = req.is_weekend if req.is_weekend is not None else (1 if now.weekday() >= 5 else 0)
+
+    surplus = float(req.forecasted_surplus)
+    battery = float(req.battery_level_pct)
+    stress = float(req.grid_stress)
+
+    # Peak windows are more sensitive to deficits.
+    is_peak_window = 1 if hour in {8, 9, 10, 18, 19, 20, 21, 22} else 0
+    effective_stress = min(1.0, stress + (0.08 * is_peak_window) + (0.05 if weekend else 0.0))
+
+    # Action policy:
+    # - Large/high-risk deficit: REDISTRIBUTE
+    # - Moderate deficit with usable battery: RELEASE
+    # - Surplus with battery headroom: STORE
+    # - Near-balanced: STABLE
+    if surplus <= -8.0 or (effective_stress >= 0.85 and surplus < -3.0) or (battery < 20.0 and surplus < 0):
+        action = "REDISTRIBUTE"
+        reason = "High-risk deficit conditions detected; rerouting energy to protect critical loads."
+    elif surplus < -1.0:
+        if battery >= 25.0:
+            action = "RELEASE"
+            reason = "Forecasted deficit with usable battery reserve; discharge recommended."
+        else:
+            action = "REDISTRIBUTE"
+            reason = "Deficit with low battery reserve; rerouting preferred over discharge."
+    elif surplus > 2.0:
+        if battery >= 95.0:
+            action = "REDISTRIBUTE"
+            reason = "Surplus available but battery nearly full; reroute energy externally."
+        else:
+            action = "STORE"
+            reason = "Surplus detected with battery headroom; charging is recommended."
+    else:
+        action = "STABLE"
+        reason = "Grid conditions are near-balanced; no aggressive balancing action required."
+
+    deficit_pressure = max(0.0, -surplus) / 12.0
+    battery_risk = max(0.0, (30.0 - battery) / 30.0)
+    urgency = min(1.0, 0.45 * deficit_pressure + 0.35 * effective_stress + 0.20 * battery_risk)
+    confidence = min(0.98, max(0.6, 0.65 + abs(surplus) / 35.0 + effective_stress * 0.12))
+
+    return {
+        "action": action,
+        "recommended_action": action,
+        "confidence": round(float(confidence), 4),
+        "urgency_score": round(float(urgency), 3),
+        "surplus_kwh": surplus,
+        "reason": (
+            f"{reason} Inputs: surplus={surplus:.2f} kWh, battery={battery:.1f}%, "
+            f"stress={stress:.2f}, hour={hour}, weekend={weekend}."
+        ),
+        "source": "backend-rule-engine",
+    }
 
 
 @router.get("/simulate")
@@ -160,90 +218,22 @@ async def grid_status(req: GridStatusRequest):
 
 @router.post("/predict")
 async def predict(req: PredictRequest):
-    """Accepts short arrays of recent solar/wind/demand and returns a recommended action sequence.
+    """Predict one recommended grid action from direct user inputs.
 
-    This endpoint tries to use the trained recommender when available; otherwise it falls
-    back to the deterministic grid_balancer logic.
+    Uses deterministic backend logic based on surplus, battery, stress, and time context.
     """
     print("\n🔵 [ENDPOINT] /predict (POST)")
     print(f"   📥 Request received:")
-    print(f"      Solar points: {len(req.solar_output_kwh)}")
-    print(f"      Wind points: {len(req.wind_output_kwh) if req.wind_output_kwh else 0}")
-    print(f"      Demand points: {len(req.demand_kwh)}")
+    print(f"      Forecasted surplus: {req.forecasted_surplus}")
     print(f"      Battery: {req.battery_level_pct}%")
-    
-    # Basic validation: arrays must be same length for timestep alignment
-    n = len(req.solar_output_kwh)
-    if len(req.demand_kwh) != n:
-        print(f"   ❌ Error: Array length mismatch (solar={n}, demand={len(req.demand_kwh)})")
-        raise HTTPException(status_code=422, detail="solar_output_kwh and demand_kwh must be the same length")
+    print(f"      Grid stress: {req.grid_stress}")
 
-    print(f"   ✅ Validation passed")
-
-    # Compose features expected by the recommender or the balancer
-    try:
-        # Try to use recommender model if available
-        print("   ⚙️  Attempting to load recommender model...")
-        recommender = demand_forecaster.get_recommender()
-        if recommender is not None:
-            print("   ✅ Recommender model loaded")
-            # Build a simple tabular input: average recent values + battery
-            avg_solar = sum(req.solar_output_kwh) / n if n else 0.0
-            avg_demand = sum(req.demand_kwh) / n if n else 0.0
-            avg_wind = 0.0
-            if req.wind_output_kwh:
-                avg_wind = sum(req.wind_output_kwh) / len(req.wind_output_kwh)
-
-            print(f"   📊 Averages: solar={avg_solar:.2f}, wind={avg_wind:.2f}, demand={avg_demand:.2f}")
-
-            features = [[avg_solar, avg_wind, avg_demand, req.battery_level_pct]]
-            try:
-                print("   🤖 Running recommender.predict()...")
-                preds = recommender.predict(features)
-                # Try to decode; else return raw
-                try:
-                    decoded = demand_forecaster.decode_recommender_labels(preds)
-                    print(f"   ✅ Decoded predictions: {decoded}")
-                except Exception as e:
-                    print(f"   ⚠️  Could not decode, returning raw: {e}")
-                    decoded = preds.tolist() if hasattr(preds, "tolist") else list(preds)
-                
-                response = {"recommended": decoded, "source": "recommender"}
-                print(f"   📤 Response: {response}\n")
-                return response
-            except Exception as e:
-                print(f"   ⚠️  Recommender predict failed: {e}")
-                pass
-
-    except Exception as e:
-        # If any recommender call fails, fall back to rule-based
-        print(f"   ⚠️  Recommender loading failed: {e}")
-        pass
-
-    # Fallback: produce per-step actions using current values and balancer helper
-    print("   📋 Falling back to rule-based logic...")
-    actions = []
-    for i in range(n):
-        try:
-            supply = req.solar_output_kwh[i] + (req.wind_output_kwh[i] if req.wind_output_kwh and i < len(req.wind_output_kwh) else 0.0)
-            demand = req.demand_kwh[i]
-            supply_demand = supply / (demand + 1)
-            
-            if req.battery_level_pct < 15 or supply_demand < 0.8:
-                action = "LOAD_SHED"
-            elif req.battery_level_pct > 85 and supply_demand > 1.2:
-                action = "STORE"
-            elif supply_demand < 0.95:
-                action = "CHARGE_BATTERY"
-            else:
-                action = "STABLE"
-        except Exception as e:
-            print(f"   ⚠️  Error at step {i}: {e}")
-            action = "STABLE"
-        actions.append(action)
-
-    response = {"recommended": actions, "source": "rule_based"}
-    print(f"   ✅ Generated {len(actions)} rule-based actions")
-    print(f"   📤 Response: actions={actions[:3]}... (showing first 3)\n")
+    response = _predict_action_from_logic(req)
+    print(
+        "   ✅ Rule-engine response: "
+        f"action={response['recommended_action']}, "
+        f"confidence={response['confidence']}, "
+        f"urgency={response['urgency_score']}\n"
+    )
     return response
 

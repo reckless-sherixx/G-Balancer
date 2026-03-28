@@ -32,16 +32,32 @@ const COLORS = {
 
 const ACTION_COLORS: Record<
   string,
-  { bg: string; text: string; icon: string }
+  { bgStart: string; bgEnd: string; text: string; icon: string }
 > = {
-  STORE: { bg: COLORS.cyan + "30", text: COLORS.cyan, icon: "battery-plus" },
-  RELEASE: { bg: COLORS.red + "30", text: COLORS.red, icon: "flash" },
+  STORE: {
+    bgStart: COLORS.cyan + "30",
+    bgEnd: COLORS.cyan + "14",
+    text: COLORS.cyan,
+    icon: "battery-plus",
+  },
+  RELEASE: {
+    bgStart: COLORS.red + "30",
+    bgEnd: COLORS.red + "14",
+    text: COLORS.red,
+    icon: "flash",
+  },
   REDISTRIBUTE: {
-    bg: COLORS.yellow + "30",
+    bgStart: COLORS.yellow + "30",
+    bgEnd: COLORS.yellow + "14",
     text: COLORS.yellow,
     icon: "shuffle",
   },
-  STABLE: { bg: COLORS.green + "30", text: COLORS.green, icon: "check-circle" },
+  STABLE: {
+    bgStart: COLORS.green + "30",
+    bgEnd: COLORS.green + "14",
+    text: COLORS.green,
+    icon: "check-circle",
+  },
 };
 
 interface InputFieldProps {
@@ -51,6 +67,7 @@ interface InputFieldProps {
   placeholder: string;
   icon: string;
   unit: string;
+  error?: string | null;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -60,6 +77,7 @@ const InputField: React.FC<InputFieldProps> = ({
   placeholder,
   icon,
   unit,
+  error,
 }) => {
   const focusAnim = useRef(new Animated.Value(0)).current;
 
@@ -104,7 +122,7 @@ const InputField: React.FC<InputFieldProps> = ({
         style={[
           styles.inputWrapper,
           {
-            borderColor: borderColor as any,
+            borderColor: error ? COLORS.red : (borderColor as any),
           },
         ]}
       >
@@ -119,6 +137,10 @@ const InputField: React.FC<InputFieldProps> = ({
           placeholderTextColor={COLORS.lightGrey}
         />
       </Animated.View>
+
+      {!!error && (
+        <ThemedText style={styles.inputErrorText}>{error}</ThemedText>
+      )}
     </View>
   );
 };
@@ -171,7 +193,7 @@ const ActionCard: React.FC<ActionCardProps> = ({
       ]}
     >
       <LinearGradient
-        colors={[colors.bg, colors.bg + "60"]}
+        colors={[colors.bgStart, colors.bgEnd]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.actionCard, { borderColor: colors.text }]}
@@ -300,7 +322,56 @@ export default function ActionsScreen() {
     [batteryInput, stressInput, surplusInput],
   );
 
+  const fieldErrors = useMemo(() => {
+    const parse = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const parsed = Number.parseFloat(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const surplus = parse(surplusInput);
+    const battery = parse(batteryInput);
+    const stress = parse(stressInput);
+
+    return {
+      surplus:
+        surplusInput.trim().length === 0
+          ? "Required"
+          : surplus === null
+            ? "Enter a valid number"
+            : surplus < -100 || surplus > 100
+              ? "Use range -100 to 100"
+              : null,
+      battery:
+        batteryInput.trim().length === 0
+          ? "Required"
+          : battery === null
+            ? "Enter a valid number"
+            : battery < 0 || battery > 100
+              ? "Use range 0 to 100"
+              : null,
+      stress:
+        stressInput.trim().length === 0
+          ? "Required"
+          : stress === null
+            ? "Enter a valid number"
+            : stress < 0 || stress > 1
+              ? "Use range 0 to 1"
+              : null,
+    };
+  }, [batteryInput, stressInput, surplusInput]);
+
+  const hasValidationErrors =
+    !!fieldErrors.surplus || !!fieldErrors.battery || !!fieldErrors.stress;
+
   const runPrediction = async () => {
+    if (hasValidationErrors) {
+      return;
+    }
+
     Animated.sequence([
       Animated.timing(buttonScaleAnim, {
         toValue: 0.95,
@@ -366,6 +437,7 @@ export default function ActionsScreen() {
             placeholder="e.g. 10.5"
             icon="flash"
             unit="MW"
+            error={fieldErrors.surplus}
           />
 
           <InputField
@@ -375,6 +447,7 @@ export default function ActionsScreen() {
             placeholder="e.g. 65"
             icon="battery"
             unit="%"
+            error={fieldErrors.battery}
           />
 
           <InputField
@@ -384,6 +457,7 @@ export default function ActionsScreen() {
             placeholder="e.g. 0.4"
             icon="gauge"
             unit="0-1"
+            error={fieldErrors.stress}
           />
         </View>
 
@@ -395,11 +469,15 @@ export default function ActionsScreen() {
         >
           <Pressable
             onPress={runPrediction}
-            disabled={prediction.loading}
+            disabled={prediction.loading || hasValidationErrors}
             style={styles.runButton}
           >
             <LinearGradient
-              colors={[COLORS.green, COLORS.green + "CC"]}
+              colors={
+                hasValidationErrors
+                  ? [COLORS.grey, COLORS.lightGrey]
+                  : [COLORS.green, COLORS.green + "CC"]
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.runButtonGradient}
@@ -410,7 +488,11 @@ export default function ActionsScreen() {
                 color={COLORS.black}
               />
               <ThemedText style={styles.runButtonText}>
-                {prediction.loading ? "Computing..." : "Run Recommendation"}
+                {prediction.loading
+                  ? "Computing..."
+                  : hasValidationErrors
+                    ? "Fix input ranges"
+                    : "Run Recommendation"}
               </ThemedText>
             </LinearGradient>
           </Pressable>
@@ -425,30 +507,6 @@ export default function ActionsScreen() {
             Analyzing grid state...
           </ThemedText>
         </View>
-      )}
-
-      {/* Error State */}
-      {!!prediction.error && (
-        <LinearGradient
-          colors={[COLORS.red + "20", COLORS.red + "10"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.errorCard, { borderColor: COLORS.red }]}
-        >
-          <View style={styles.errorHeader}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={20}
-              color={COLORS.red}
-            />
-            <ThemedText style={[styles.errorTitle, { color: COLORS.red }]}>
-              Prediction Error
-            </ThemedText>
-          </View>
-          <ThemedText style={styles.errorMessage}>
-            {prediction.error}
-          </ThemedText>
-        </LinearGradient>
       )}
 
       {/* Result State */}
@@ -639,6 +697,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     fontWeight: "500",
+  },
+  inputErrorText: {
+    color: COLORS.red,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+    letterSpacing: 0.2,
   },
   runButtonContainer: {
     marginTop: 4,

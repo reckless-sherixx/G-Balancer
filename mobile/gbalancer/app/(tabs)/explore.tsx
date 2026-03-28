@@ -1,12 +1,14 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Easing,
+  ImageBackground,
+  type ImageSourcePropType,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  type ViewStyle,
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,8 +18,6 @@ import { ForecastBars } from "@/components/grid/forecast-bars";
 import { ThemedText } from "@/components/themed-text";
 import { useAdminSettings } from "@/features/admin/settings-context";
 import { useForecastData } from "@/features/grid/hooks";
-
-const { width } = Dimensions.get("window");
 
 const COLORS = {
   black: "#0B0B0B",
@@ -31,6 +31,10 @@ const COLORS = {
   yellow: "#FFD700",
 };
 
+const ADOBE_ELECTRICITY_PATTERN_IMAGE = {
+  uri: "https://as1.ftcdn.net/jpg/18/57/43/74/1000_F_1857437495_vF3Ij3xSvfpV0hVlwzhcguXjDUck4CDx.webp",
+} as const;
+
 interface ForecastCardProps {
   title: string;
   value: string;
@@ -39,6 +43,9 @@ interface ForecastCardProps {
   hint: string;
   color: string;
   delay: number;
+  imageSource: ImageSourcePropType;
+  fallbackImageSource: ImageSourcePropType;
+  containerStyle?: ViewStyle;
 }
 
 const ForecastCard: React.FC<ForecastCardProps> = ({
@@ -49,9 +56,13 @@ const ForecastCard: React.FC<ForecastCardProps> = ({
   hint,
   color,
   delay,
+  imageSource,
+  fallbackImageSource,
+  containerStyle,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     Animated.stagger(delay, [
@@ -70,36 +81,51 @@ const ForecastCard: React.FC<ForecastCardProps> = ({
     ]).start();
   }, []);
 
+  const resolvedImageSource = imageFailed ? fallbackImageSource : imageSource;
+
   return (
     <Animated.View
       style={[
         styles.forecastCard,
+        containerStyle,
         {
           opacity: opacityAnim,
           transform: [{ scale: scaleAnim }],
         },
       ]}
     >
-      <LinearGradient
-        colors={[COLORS.darkGrey, COLORS.grey]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.forecastCardInner}
+      <ImageBackground
+        source={resolvedImageSource}
+        resizeMode="cover"
+        style={styles.forecastCardImageBg}
+        imageStyle={styles.forecastCardImage}
+        onError={() => setImageFailed(true)}
       >
-        <View style={styles.forecastCardHeader}>
-          <MaterialCommunityIcons name={icon as any} size={24} color={color} />
-          <ThemedText style={styles.forecastCardTitle}>{title}</ThemedText>
-        </View>
+        <LinearGradient
+          colors={["#050505F0", "#0B0B0BD9"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.forecastCardInner}
+        >
+          <View style={styles.forecastCardHeader}>
+            <MaterialCommunityIcons
+              name={icon as any}
+              size={24}
+              color={color}
+            />
+            <ThemedText style={styles.forecastCardTitle}>{title}</ThemedText>
+          </View>
 
-        <View style={styles.forecastCardContent}>
-          <ThemedText style={[styles.forecastCardValue, { color }]}>
-            {value}
-          </ThemedText>
-          <ThemedText style={styles.forecastCardUnit}>{unit}</ThemedText>
-        </View>
+          <View style={styles.forecastCardContent}>
+            <ThemedText style={[styles.forecastCardValue, { color }]}>
+              {value}
+            </ThemedText>
+            <ThemedText style={styles.forecastCardUnit}>{unit}</ThemedText>
+          </View>
 
-        <ThemedText style={styles.forecastCardHint}>{hint}</ThemedText>
-      </LinearGradient>
+          <ThemedText style={styles.forecastCardHint}>{hint}</ThemedText>
+        </LinearGradient>
+      </ImageBackground>
     </Animated.View>
   );
 };
@@ -218,35 +244,49 @@ export default function ForecastScreen() {
         <>
           {/* Quick Metrics */}
           <View style={styles.metricsSection}>
-            <ForecastCard
-              title="Next Hour"
-              value={nextDelta}
-              unit="MW"
-              icon={isNextSurplus ? "flash" : "alert"}
-              hint={isNextSurplus ? "Surplus expected" : "Deficit expected"}
-              color={isNextSurplus ? COLORS.green : COLORS.yellow}
-              delay={0}
-            />
-            <ForecastCard
-              title="6 Hours"
-              value={sixthDelta}
-              unit="MW"
-              icon={
-                isSixthSurplus ? "lightning-bolt" : "lightning-bolt-outline"
-              }
-              hint={isSixthSurplus ? "Strong surplus" : "Potential deficit"}
-              color={isSixthSurplus ? COLORS.green : COLORS.yellow}
-              delay={100}
-            />
-            <ForecastCard
-              title="24 Hours"
-              value={dayDelta}
-              unit="MW"
-              icon={isDaySurplus ? "check-circle" : "close-circle"}
-              hint={isDaySurplus ? "Day-level surplus" : "Day-level deficit"}
-              color={isDaySurplus ? COLORS.green : COLORS.red}
-              delay={200}
-            />
+            <View style={styles.metricsTopRow}>
+              <ForecastCard
+                title="Next Hour"
+                value={nextDelta}
+                unit="MW"
+                icon={isNextSurplus ? "flash" : "alert"}
+                hint={isNextSurplus ? "Surplus expected" : "Deficit expected"}
+                color={isNextSurplus ? COLORS.green : COLORS.yellow}
+                delay={0}
+                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
+                fallbackImageSource={require("../../assets/images/android-icon-background.png")}
+                containerStyle={styles.metricsTopCard}
+              />
+            </View>
+
+            <View style={styles.metricsBottomRow}>
+              <ForecastCard
+                title="6 Hours"
+                value={sixthDelta}
+                unit="MW"
+                icon={
+                  isSixthSurplus ? "lightning-bolt" : "lightning-bolt-outline"
+                }
+                hint={isSixthSurplus ? "Strong surplus" : "Potential deficit"}
+                color={isSixthSurplus ? COLORS.green : COLORS.yellow}
+                delay={100}
+                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
+                fallbackImageSource={require("../../assets/images/icon.png")}
+                containerStyle={styles.metricsBottomCard}
+              />
+              <ForecastCard
+                title="24 Hours"
+                value={dayDelta}
+                unit="MW"
+                icon={isDaySurplus ? "check-circle" : "close-circle"}
+                hint={isDaySurplus ? "Day-level surplus" : "Day-level deficit"}
+                color={isDaySurplus ? COLORS.green : COLORS.red}
+                delay={200}
+                imageSource={ADOBE_ELECTRICITY_PATTERN_IMAGE}
+                fallbackImageSource={require("../../assets/images/splash-icon.png")}
+                containerStyle={styles.metricsBottomCard}
+              />
+            </View>
           </View>
 
           {/* Demand Summary */}
@@ -533,9 +573,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
   },
+  metricsTopRow: {
+    alignItems: "stretch",
+  },
+  metricsBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  metricsTopCard: {
+    width: "100%",
+  },
+  metricsBottomCard: {
+    flex: 1,
+  },
   forecastCard: {
     borderRadius: 12,
     overflow: "hidden",
+  },
+  forecastCardImageBg: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  forecastCardImage: {
+    opacity: 1,
   },
   forecastCardInner: {
     borderWidth: 1,
