@@ -7,6 +7,24 @@ import { cn } from "@/utils/cn";
 import { Activity, Zap, AlertTriangle, Map } from "lucide-react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 
+type RegionStatus = "deficit" | "balanced" | "surplus";
+
+type RegionData = {
+  id: string;
+  name: string;
+  status: RegionStatus;
+  load: number;
+};
+
+type GeoProperties = {
+  ST_NM?: string;
+  name?: string;
+};
+
+type GeoShape = {
+  properties: GeoProperties;
+};
+
 const INDIA_TOPO_JSON = "https://raw.githubusercontent.com/Anujarya300/bubble_maps/master/data/geography-data/india.topo.json";
 
 // Assign states to our mock grids for coloring
@@ -53,7 +71,7 @@ const GRID_MAP: Record<string, string> = {
 };
 
 // Mock regions mapping to data
-const REGIONS: Record<string, any> = {
+const REGIONS: Record<string, RegionData> = {
   north: { id: "north", name: "Northern Grid", status: "deficit", load: 92 },
   west: { id: "west", name: "Western Grid", status: "balanced", load: 75 },
   south: { id: "south", name: "Southern Grid", status: "surplus", load: 60 },
@@ -85,7 +103,7 @@ export function IndiaMap() {
     }
   };
 
-  const handleStateClick = (geo: any) => {
+  const handleStateClick = (geo: GeoShape) => {
     const stateName = geo.properties.ST_NM || geo.properties.name;
     const gridId = GRID_MAP[stateName] || "east"; // fallback
     setActiveRegionId(gridId);
@@ -110,8 +128,7 @@ export function IndiaMap() {
                   const stateName = geo.properties.ST_NM || geo.properties.name;
                   const gridId = GRID_MAP[stateName] || "east";
                   const regionData = REGIONS[gridId];
-                  const isActive = activeRegionId === gridId;
-                  
+
                   return (
                     <Geography
                       key={geo.rsmKey}

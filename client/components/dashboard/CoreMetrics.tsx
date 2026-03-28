@@ -4,12 +4,15 @@ import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { Activity, Zap, Cpu } from "lucide-react";
+import { useGridStore } from "@/hooks/useGridData";
 
 export function CoreMetrics() {
   const container = useRef<HTMLDivElement>(null);
   const freqRef = useRef<HTMLSpanElement>(null);
   const loadRef = useRef<HTMLSpanElement>(null);
   const confRef = useRef<HTMLSpanElement>(null);
+  const metrics = useGridStore((state) => state.metrics);
+  const stats = useGridStore((state) => state.stats);
 
   useGSAP(() => {
     // Initial entrance animation
@@ -21,45 +24,56 @@ export function CoreMetrics() {
       ease: "power3.out"
     });
 
-    // Simulate real-time fluctuations
-    const interval = setInterval(() => {
-      if (freqRef.current) {
-        gsap.to(freqRef.current, {
-          innerHTML: 59.8 + Math.random() * 0.4,
-          duration: 1.2,
-          snap: { innerHTML: 0.01 },
-          onUpdate: function() { 
-            if (freqRef.current) freqRef.current.innerHTML = Number(freqRef.current.innerHTML).toFixed(2); 
-          }
-        });
-      }
-      
-      if (loadRef.current) {
-        gsap.to(loadRef.current, {
-          innerHTML: 4200 + Math.random() * 800,
-          duration: 2.5,
-          ease: "power2.inOut",
-          snap: { innerHTML: 1 },
-          onUpdate: function() { 
-            if (loadRef.current) loadRef.current.innerHTML = Number(loadRef.current.innerHTML.replace(/,/g, '')).toLocaleString(); 
-          }
-        });
-      }
-
-      if (confRef.current) {
-        gsap.to(confRef.current, {
-          innerHTML: 98 + Math.random() * 1.9,
-          duration: 1.5,
-          snap: { innerHTML: 0.1 },
-          onUpdate: function() { 
-            if (confRef.current) confRef.current.innerHTML = Number(confRef.current.innerHTML).toFixed(1); 
-          }
-        });
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
+    return () => undefined;
   }, { scope: container });
+
+  useEffect(() => {
+    const demand = metrics?.currentDemand ?? 0;
+    const renewable = metrics
+      ? ((metrics.solarSupply + metrics.windSupply) / Math.max(1, metrics.currentDemand)) * 100
+      : 0;
+    const confidence = Math.min(99.9, Math.max(75, 80 + renewable * 0.2 + (stats?.renewablePercentage ?? 0) * 0.15));
+
+    if (freqRef.current) {
+      const targetFreq = metrics?.gridStatus === "critical" ? 59.72 : metrics?.gridStatus === "warning" ? 59.88 : 60.0;
+      gsap.to(freqRef.current, {
+        innerHTML: targetFreq,
+        duration: 1,
+        snap: { innerHTML: 0.01 },
+        onUpdate: () => {
+          if (freqRef.current) {
+            freqRef.current.innerHTML = Number(freqRef.current.innerHTML).toFixed(2);
+          }
+        },
+      });
+    }
+
+    if (loadRef.current) {
+      gsap.to(loadRef.current, {
+        innerHTML: demand,
+        duration: 1,
+        snap: { innerHTML: 1 },
+        onUpdate: () => {
+          if (loadRef.current) {
+            loadRef.current.innerHTML = Number(loadRef.current.innerHTML.replace(/,/g, "")).toLocaleString();
+          }
+        },
+      });
+    }
+
+    if (confRef.current) {
+      gsap.to(confRef.current, {
+        innerHTML: confidence,
+        duration: 1,
+        snap: { innerHTML: 0.1 },
+        onUpdate: () => {
+          if (confRef.current) {
+            confRef.current.innerHTML = Number(confRef.current.innerHTML).toFixed(1);
+          }
+        },
+      });
+    }
+  }, [metrics, stats]);
 
   return (
     <div ref={container} className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 w-full">
@@ -95,7 +109,7 @@ export function CoreMetrics() {
          </div>
          <div className="flex items-baseline gap-2 mt-4">
            <span ref={confRef} className="font-bebas text-6xl text-[#00ff87] leading-none tracking-tight">99.4</span>
-           <span className="font-mono text-sm text-[#00ff87]">%)</span>
+           <span className="font-mono text-sm text-[#00ff87]">%</span>
          </div>
        </div>
     </div>

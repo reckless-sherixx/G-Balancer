@@ -4,20 +4,24 @@ import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { Battery } from "lucide-react";
+import { useGridStore } from "@/hooks/useGridData";
 
 export function BatteryPanel() {
   const container = useRef<HTMLDivElement>(null);
+  const metrics = useGridStore((state) => state.metrics);
+  const batteryPct = Math.max(0, Math.min(100, metrics?.batteryPercentage ?? 0));
+  const batteryStatus = metrics?.batteryStatus ?? "idle";
   
   useGSAP(() => {
-    // Fill animation 0 to 86%
+    // Fill animation based on backend battery state.
     gsap.fromTo(".battery-fill",
       { height: "0%" },
-      { height: "86%", duration: 3, ease: "power3.inOut" }
+      { height: `${batteryPct}%`, duration: 1.2, ease: "power3.inOut" }
     );
 
     gsap.to(".battery-level-text", {
-      innerHTML: 86,
-      duration: 3,
+      innerHTML: batteryPct,
+      duration: 1.2,
       snap: { innerHTML: 1 },
       ease: "power3.inOut"
     });
@@ -30,7 +34,21 @@ export function BatteryPanel() {
       duration: 1.5,
       ease: "none"
     });
-  }, { scope: container });
+  }, { scope: container, dependencies: [batteryPct] });
+
+  useEffect(() => {
+    gsap.to(".battery-fill", {
+      height: `${batteryPct}%`,
+      duration: 0.8,
+      ease: "power2.out",
+    });
+
+    gsap.to(".battery-level-text", {
+      innerHTML: batteryPct,
+      duration: 0.8,
+      snap: { innerHTML: 1 },
+    });
+  }, [batteryPct]);
 
   return (
     <div ref={container} className="bg-[#141414] border border-[#222] p-6 lg:p-8 flex flex-col h-[400px] hover:border-[#333] transition-colors group relative">
@@ -39,7 +57,7 @@ export function BatteryPanel() {
        <div className="flex justify-between items-start mb-auto">
          <div>
            <h3 className="font-bebas text-3xl tracking-wide text-white">Array Storage</h3>
-           <p className="font-mono text-[10px] text-[#00ff87] uppercase tracking-widest mt-1 animate-pulse">Charging</p>
+           <p className="font-mono text-[10px] text-[#00ff87] uppercase tracking-widest mt-1 animate-pulse">{batteryStatus}</p>
          </div>
          <Battery className="w-5 h-5 text-white/30" />
        </div>

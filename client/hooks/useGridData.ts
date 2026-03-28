@@ -1,42 +1,84 @@
 "use client";
 
 import { create } from 'zustand';
-import { api, GridMetrics } from '../services/api';
+import {
+  api,
+  DashboardStats,
+  ForecastData,
+  GridAlert,
+  GridMetrics,
+  WeatherSnapshot,
+} from '../services/api';
 
 interface GridState {
   metrics: GridMetrics | null;
+  weather: WeatherSnapshot | null;
+  stats: DashboardStats | null;
+  forecast: ForecastData | null;
   isLoading: boolean;
   error: string | null;
-  fetchMetrics: () => Promise<void>;
-  
-  alerts: Array<{ id: string; type: "INFO" | "WARNING" | "CRITICAL"; msg: string; time: string }>;
-  fetchAlerts: () => void;
+  alerts: GridAlert[];
+  fetchDashboard: (city?: string) => Promise<void>;
+  fetchMetrics: (city?: string) => Promise<void>;
+  fetchAlerts: (city?: string, limit?: number) => Promise<void>;
+  fetchForecast: (city?: string, hours?: number) => Promise<void>;
 }
 
 export const useGridStore = create<GridState>((set) => ({
   metrics: null,
+  weather: null,
+  stats: null,
+  forecast: null,
   isLoading: false,
   error: null,
   alerts: [],
-  
-  fetchMetrics: async () => {
+
+  fetchDashboard: async (city = 'Mumbai') => {
     set({ isLoading: true });
     try {
-      const data = await api.getGridMetrics();
+      const bundle = await api.getDashboard(city);
+      set({
+        metrics: bundle.metrics,
+        weather: bundle.weather,
+        stats: bundle.stats,
+        alerts: bundle.alerts,
+        isLoading: false,
+        error: null,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to fetch dashboard data';
+      set({ error: message, isLoading: false });
+    }
+  },
+  
+  fetchMetrics: async (city = 'Mumbai') => {
+    set({ isLoading: true });
+    try {
+      const data = await api.getGridMetrics(city);
       set({ metrics: data, isLoading: false, error: null });
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to fetch metrics';
+      set({ error: message, isLoading: false });
     }
   },
 
-  fetchAlerts: () => {
-    // Generate mock alerts 
-    set({
-      alerts: [
-        { id: "1", type: "CRITICAL", msg: "Transformer overload detected in Zone 4.", time: "10:12 AM" },
-        { id: "2", type: "WARNING", msg: "Solar output dropping 15% due to incoming cloud cover.", time: "10:05 AM" },
-        { id: "3", type: "INFO", msg: "Battery array B2 fully charged.", time: "09:45 AM" },
-      ]
-    })
-  }
+  fetchAlerts: async (city = 'Mumbai', limit = 20) => {
+    try {
+      const data = await api.getAlerts(city, limit);
+      set({ alerts: data, error: null });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to fetch alerts';
+      set({ error: message });
+    }
+  },
+
+  fetchForecast: async (city = 'Mumbai', hours = 24) => {
+    try {
+      const data = await api.getForecast(city, hours);
+      set({ forecast: data, error: null });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to fetch forecast';
+      set({ error: message });
+    }
+  },
 }));

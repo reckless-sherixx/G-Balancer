@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
+import { useGridStore } from "@/hooks/useGridData";
 
 import { Header } from "@/components/dashboard/Header";
 import { CoreMetrics } from "@/components/dashboard/CoreMetrics";
@@ -19,6 +20,8 @@ if (typeof window !== "undefined") {
 
 export default function Dashboard() {
   const container = useRef<HTMLDivElement>(null);
+  const fetchDashboard = useGridStore((state) => state.fetchDashboard);
+  const fetchForecast = useGridStore((state) => state.fetchForecast);
 
   useEffect(() => {
     const lenis = new Lenis();
@@ -30,6 +33,18 @@ export default function Dashboard() {
       lenis.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    void fetchDashboard();
+    void fetchForecast("Mumbai", 24);
+
+    const interval = setInterval(() => {
+      void fetchDashboard();
+      void fetchForecast("Mumbai", 24);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchDashboard, fetchForecast]);
 
   useGSAP(() => {
     // Reveal all major panels sequentially
