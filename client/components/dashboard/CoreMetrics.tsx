@@ -12,7 +12,7 @@ export function CoreMetrics() {
   const loadRef = useRef<HTMLSpanElement>(null);
   const confRef = useRef<HTMLSpanElement>(null);
   const metrics = useGridStore((state) => state.metrics);
-  const stats = useGridStore((state) => state.stats);
+  const forecast = useGridStore((state) => state.forecast);
 
   useGSAP(() => {
     // Initial entrance animation
@@ -29,10 +29,13 @@ export function CoreMetrics() {
 
   useEffect(() => {
     const demand = metrics?.currentDemand ?? 0;
-    const renewable = metrics
-      ? ((metrics.solarSupply + metrics.windSupply) / Math.max(1, metrics.currentDemand)) * 100
-      : 0;
-    const confidence = Math.min(99.9, Math.max(75, 80 + renewable * 0.2 + (stats?.renewablePercentage ?? 0) * 0.15));
+    const confidenceSamples = (forecast?.hourly ?? [])
+      .map((item) => item.confidence)
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .map((value) => (value <= 1 ? value * 100 : value));
+    const confidence = confidenceSamples.length > 0
+      ? confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length
+      : 85;
 
     if (freqRef.current) {
       const targetFreq = metrics?.gridStatus === "critical" ? 59.72 : metrics?.gridStatus === "warning" ? 59.88 : 60.0;
@@ -73,7 +76,7 @@ export function CoreMetrics() {
         },
       });
     }
-  }, [metrics, stats]);
+  }, [metrics, forecast]);
 
   return (
     <div ref={container} className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 w-full">
@@ -108,7 +111,7 @@ export function CoreMetrics() {
            <Cpu className="w-5 h-5 text-[#00ff87]" />
          </div>
          <div className="flex items-baseline gap-2 mt-4">
-           <span ref={confRef} className="font-bebas text-6xl text-[#00ff87] leading-none tracking-tight">99.4</span>
+           <span ref={confRef} className="font-bebas text-6xl text-[#00ff87] leading-none tracking-tight">85.0</span>
            <span className="font-mono text-sm text-[#00ff87]">%</span>
          </div>
        </div>
