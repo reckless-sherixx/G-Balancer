@@ -40,6 +40,7 @@ export default function Home() {
   const container = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState(85);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -56,6 +57,35 @@ export default function Home() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
       lenis.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadConfidence = async () => {
+      try {
+        const response = await fetch(`${API_URL}/forecast?city=Mumbai&hours=6`, { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const hourly = Array.isArray(payload?.hourly) ? payload.hourly : [];
+        const values = hourly
+          .map((entry: { confidence?: number }) => Number(entry.confidence))
+          .filter((value: number) => Number.isFinite(value) && value > 0)
+          .map((value: number) => (value <= 1 ? value * 100 : value));
+
+        if (!mounted || values.length === 0) return;
+        const average = values.reduce((sum: number, value: number) => sum + value, 0) / values.length;
+        setAiConfidence(Math.max(1, Math.min(99.9, average)));
+      } catch {
+        // Keep default confidence if forecast fetch fails.
+      }
+    };
+
+    loadConfidence();
+
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -209,7 +239,7 @@ export default function Home() {
       .from(".dash-wrapper", { y: 50, opacity: 0, duration: 1, ease: "power4.out" }, "-=0.4")
       .from(".dash-element", { opacity: 0, y: 20, stagger: 0.1, duration: 0.6, ease: "power2.out" })
       .to(".dash-stat", {
-        innerHTML: 99.9,
+        innerHTML: aiConfidence,
         duration: 2,
         ease: "power2.out",
         snap: { innerHTML: 0.1 },
@@ -251,7 +281,7 @@ export default function Home() {
       },
     });
 
-  }, { scope: container });
+  }, { scope: container, dependencies: [aiConfidence] });
 
   return (
     <div ref={container} className="bg-[#0B0B0B] text-white min-h-screen font-sans overflow-x-hidden selection:bg-[#00FF41] selection:text-black">
