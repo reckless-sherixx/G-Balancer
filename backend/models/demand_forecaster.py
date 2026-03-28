@@ -14,9 +14,16 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sys
 import os
-import torch
 import joblib
 from sklearn.preprocessing import MinMaxScaler
+
+# Try to import torch, but make it optional
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
 
 # Make ml module importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ml", "src"))
@@ -206,6 +213,9 @@ def _forecast_lstm(buffer: ObservationBuffer, target_hour: datetime) -> dict | N
     
     try:
         # Use LSTM to forecast next 6 hours
+        if not TORCH_AVAILABLE or forecaster is None:
+            return None
+        
         with torch.no_grad():
             x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
