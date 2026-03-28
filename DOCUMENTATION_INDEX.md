@@ -1,281 +1,330 @@
-# 📚 Documentation Index - G-Balancer Integration
+# 📚 DOCUMENTATION INDEX
 
-## 🚀 Getting Started (Start Here!)
+**G-Balancer System Documentation**  
+**Last Updated:** March 28, 2026
 
-1. **[START_HERE.md](START_HERE.md)** ⭐ START HERE
-   - Quick 60-second setup
-   - What you have now
-   - Expected results
+---
 
-2. **[RESOLUTION_SUMMARY.md](RESOLUTION_SUMMARY.md)**
-   - Network issue fix summary
-   - Before/after comparison
+## 🎯 Start Here
+
+### For Immediate Setup (5 minutes)
+
+1. **👉 [`COMMANDS_TO_RUN.md`](COMMANDS_TO_RUN.md)** - Exact copy-paste commands
+   - Backend startup command
+   - Mobile startup command
+   - Expected output
    - Success checklist
 
-3. **[QUICK_START_MOBILE.md](QUICK_START_MOBILE.md)**
-   - Step-by-step mobile setup
-   - Emulator configuration
-   - Troubleshooting steps
+### For WSL Users (Linux Subsystem)
+
+2. **👉 [`WSL_QUICK_START.md`](WSL_QUICK_START.md)** - Quick WSL setup
+   - Copy-paste WSL commands
+   - Common WSL issues & fixes
+   - Path differences (WSL vs PowerShell)
 
 ---
 
-## 🔧 Troubleshooting & Debugging
+## 📖 Comprehensive Guides
 
-### Network Issues
+### Understanding the System
 
-1. **[FIX_NETWORK_ERROR.md](FIX_NETWORK_ERROR.md)** - Quick action steps
-2. **[NETWORK_TROUBLESHOOTING.md](NETWORK_TROUBLESHOOTING.md)** - Detailed diagnostics
-3. **[NETWORK_FIX_SUMMARY.md](NETWORK_FIX_SUMMARY.md)** - Fix explanation
-4. **[NETWORK_DIAGNOSTICS.md](NETWORK_DIAGNOSTICS.md)** - Diagnostic procedures
+3. **[`COMPLETE_SYSTEM_GUIDE.md`](COMPLETE_SYSTEM_GUIDE.md)** - Full system documentation
+   - What the system does
+   - Architecture diagram
+   - Project structure
+   - API endpoints
+   - Database schema
+   - Data sources
+   - Request/response examples
+   - Debugging tips
+   - Troubleshooting
 
-### Debugging & Logging
+### Setup & Configuration
 
-1. **[DEBUGGING_GUIDE.md](DEBUGGING_GUIDE.md)** - Comprehensive debugging reference
-2. **[DEBUGGING_IMPLEMENTATION.md](DEBUGGING_IMPLEMENTATION.md)** - Logging implementation details
+4. **[`QUICK_SETUP.md`](QUICK_SETUP.md)** - Setup guide
+   - Verification commands
+   - Expected console output
+   - Reference table
 
-### Automation
-
-1. **[backend/diagnose.py](backend/diagnose.py)** - Run: `python diagnose.py`
-
----
-
-## 📖 Architecture & Implementation
-
-1. **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)**
-   - Complete system architecture
-   - API endpoints reference
-   - Runbook for operations
-
-2. **[FINAL_RESOLUTION.md](FINAL_RESOLUTION.md)**
-   - Issue analysis and fix
-   - Files modified
-   - Verification checklist
-
-3. **[MOBILE_INTEGRATION_GUIDE.md](MOBILE_INTEGRATION_GUIDE.md)**
-   - Mobile app integration details
-   - API contract
-   - Data flow
+5. **[`WSL_SETUP_GUIDE.md`](WSL_SETUP_GUIDE.md)** - Complete WSL guide
+   - WSL vs PowerShell differences
+   - Installation in WSL
+   - Common WSL issues
+   - Pro tips
 
 ---
 
-## 📝 Project Documentation
+## 🔧 Troubleshooting & Fixes
 
-1. **[README.md](README.md)** - Project overview
-2. **[INTEGRATION_COMPLETE.md](INTEGRATION_COMPLETE.md)** - Integration status
-3. **[STATUS_REPORT.md](STATUS_REPORT.md)** - Current status
+### Understanding What Was Fixed
 
----
+6. **[`ACTUAL_FIX_EXPLANATION.md`](ACTUAL_FIX_EXPLANATION.md)** - Detailed fix explanation
+   - What was actually wrong (NOT IP addresses!)
+   - Root causes
+   - Why network error happened
+   - Key takeaways
 
-## 🔍 How to Use These Docs
-
-### I want to get started quickly
-
-→ Go to **[START_HERE.md](START_HERE.md)**
-
-### The app shows "Network request failed"
-
-→ Go to **[FIX_NETWORK_ERROR.md](FIX_NETWORK_ERROR.md)**
-
-### I want to understand the logging output
-
-→ Go to **[DEBUGGING_GUIDE.md](DEBUGGING_GUIDE.md)**
-
-### The backend won't start
-
-→ Run `python backend/diagnose.py`
-
-### I want to understand the architecture
-
-→ Go to **[FINAL_IMPLEMENTATION.md](FINAL_IMPLEMENTATION.md)**
-
-### I need detailed network troubleshooting
-
-→ Go to **[NETWORK_TROUBLESHOOTING.md](NETWORK_TROUBLESHOOTING.md)**
-
-### I want to see what was fixed
-
-→ Go to **[FINAL_RESOLUTION.md](FINAL_RESOLUTION.md)**
+7. **[`FIX_SUMMARY.md`](FIX_SUMMARY.md)** - Fix summary
+   - Root cause analysis
+   - Fixes applied
+   - Current system status
+   - Quick reference table
 
 ---
 
-## 📂 File Structure
+## 📊 Implementation Details
+
+### Original Implementation Guides
+
+8. **`documentation/IMPLEMENTATION_GUIDE.md`** - Architecture & design
+   - System components
+   - Service layer design
+   - Database design
+   - ML integration
+
+9. **`documentation/ML_TRAINING_GUIDE.md`** - ML model training
+   - Data collection
+   - Feature engineering
+   - Model training
+   - Model evaluation
+
+10. **`documentation/QUICK_START.md`** - Original quick start
+    - Project setup
+    - Development environment
+    - Running the system
+
+---
+
+## 🎯 By Use Case
+
+### "I just want to run it"
+
+→ Start with **[`COMMANDS_TO_RUN.md`](COMMANDS_TO_RUN.md)** (5 min)
+
+### "I'm on Windows (PowerShell)"
+
+→ Follow **[`COMMANDS_TO_RUN.md`](COMMANDS_TO_RUN.md)**
+
+### "I'm on Linux/WSL"
+
+→ Follow **[`WSL_QUICK_START.md`](WSL_QUICK_START.md)**
+
+### "I want to understand everything"
+
+→ Read **[`COMPLETE_SYSTEM_GUIDE.md`](COMPLETE_SYSTEM_GUIDE.md)**
+
+### "Something is broken"
+
+→ Check **[`ACTUAL_FIX_EXPLANATION.md`](ACTUAL_FIX_EXPLANATION.md)** and **[`COMPLETE_SYSTEM_GUIDE.md`](COMPLETE_SYSTEM_GUIDE.md)**
+
+### "I want to train ML models"
+
+→ See **`documentation/ML_TRAINING_GUIDE.md`**
+
+### "I need to understand the architecture"
+
+→ Read **[`COMPLETE_SYSTEM_GUIDE.md`](COMPLETE_SYSTEM_GUIDE.md)** or **`documentation/IMPLEMENTATION_GUIDE.md`**
+
+---
+
+## 🗂️ File Organization
 
 ```
-c:\Users\KIIT\Documents\G-Balancer\
-├─ START_HERE.md                           ← START HERE!
-├─ RESOLUTION_SUMMARY.md
-├─ FIX_NETWORK_ERROR.md
-├─ NETWORK_TROUBLESHOOTING.md
-├─ NETWORK_FIX_SUMMARY.md
-├─ NETWORK_DIAGNOSTICS.md
-├─ DEBUGGING_GUIDE.md
-├─ DEBUGGING_IMPLEMENTATION.md
-├─ FINAL_IMPLEMENTATION.md
-├─ FINAL_RESOLUTION.md
-├─ MOBILE_INTEGRATION_GUIDE.md
-├─ QUICK_START_MOBILE.md
-├─ README.md
-├─ INTEGRATION_COMPLETE.md
-├─ STATUS_REPORT.md
+G-Balancer/
+├── 📍 COMMANDS_TO_RUN.md               ← START HERE
+├── 📍 WSL_QUICK_START.md               ← START HERE (WSL users)
+├── 📍 QUICK_SETUP.md                   ← Verification guide
+├── 📍 WSL_SETUP_GUIDE.md               ← Full WSL setup
+├── 📍 COMPLETE_SYSTEM_GUIDE.md         ← Full documentation
+├── 📍 ACTUAL_FIX_EXPLANATION.md        ← Technical fix details
+├── 📍 FIX_SUMMARY.md                   ← Fix overview
+├── 📍 DOCUMENTATION_INDEX.md           ← This file
 │
-├─ backend/
-│  ├─ main.py                             (FastAPI app)
-│  ├─ diagnose.py                         (Run diagnostics)
-│  ├─ requirements.txt                    (Dependencies)
-│  ├─ routes/
-│  │  ├─ mobile_compat.py                (Mobile endpoints)
-│  │  ├─ forecast.py
-│  │  ├─ grid.py
-│  │  ├─ dashboard.py
-│  │  └─ websocket_route.py
-│  ├─ services/
-│  │  ├─ weather_service.py
-│  │  ├─ grid_balancer.py
-│  │  └─ alert_service.py
-│  ├─ models/
-│  │  └─ demand_forecaster.py
-│  └─ database/
-│     └─ db.py
+├── documentation/                      ← Original docs
+│   ├── QUICK_START.md
+│   ├── IMPLEMENTATION_GUIDE.md
+│   └── ML_TRAINING_GUIDE.md
 │
-├─ mobile/gbalancer/
-│  ├─ features/grid/
-│  │  └─ api.ts                          (Updated with 10.0.2.2)
-│  ├─ app/
-│  │  ├─ (tabs)/index.tsx
-│  │  └─ layout.tsx
-│  ├─ package.json
-│  └─ tsconfig.json
+├── backend/                            ← Backend code
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── routes/
+│   ├── services/
+│   ├── models/
+│   ├── database/
+│   └── ml/
 │
-└─ .gitignore                             (Excludes venv, models, data)
+└── mobile/gbalancer/                   ← Mobile app
+    ├── package.json
+    ├── app/
+    └── features/grid/
 ```
 
 ---
 
-## 🎯 Quick Reference
+## 📋 Quick Reference
 
-### The Main Issue
+### Common Commands
 
-```
-Mobile: "TypeError: Network request failed"
-Cause: Android Emulator needs special IP 10.0.2.2 (not 10.21.39.161)
-Fix: Already applied in mobile/gbalancer/features/grid/api.ts
-```
+**Backend (PowerShell):**
 
-### The Key Change
-
-```typescript
-// Android Emulator uses special IP
-const DEFAULT_BASE_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:8000" // ✅ This was the fix
-    : "http://10.21.39.161:8000"; // Physical devices/iOS
+```powershell
+cd "c:\Users\KIIT\Documents\G-Balancer\backend"
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### The Key Files Changed
+**Backend (WSL):**
 
-1. `mobile/gbalancer/features/grid/api.ts` - IP fix + logging
-2. `backend/main.py` - Startup logging
-3. `backend/routes/mobile_compat.py` - Endpoint logging
-4. `.gitignore` - Virtual env exclusions
+```bash
+cd /mnt/c/Users/KIIT/Documents/G-Balancer/backend
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-### The Key New Tools
+**Mobile:**
 
-1. `backend/diagnose.py` - Automated diagnostics
-2. Multiple troubleshooting guides
-3. Comprehensive logging
+```powershell
+cd "c:\Users\KIIT\Documents\G-Balancer\mobile\gbalancer"
+npx expo start
+# Press 'a'
+```
 
----
+**Test Health:**
 
-## ✅ What's Working Now
+```bash
+curl http://10.21.39.161:8000/health
+```
 
-- ✅ Backend serves on `http://127.0.0.1:8000` (localhost)
-- ✅ Accessible from machine as `http://10.21.39.161:8000`
-- ✅ Accessible from Android Emulator as `http://10.0.2.2:8000`
-- ✅ Mobile app automatically uses correct IP
-- ✅ Comprehensive logging for debugging
-- ✅ Diagnostic tools for troubleshooting
-- ✅ Real-time data updates
-- ✅ Full documentation
+**View Docs:**
 
----
-
-## 🚀 Next Steps
-
-1. **Follow START_HERE.md** for 60-second setup
-2. **Tap "Refresh Data"** in mobile app
-3. **Watch console logs** for ✅ success
-4. **Explore the dashboard** and enjoy!
+```
+http://10.21.39.161:8000/docs
+```
 
 ---
 
-## 📞 Questions?
+## ✅ Verification Checklist
 
-| Question                   | Answer                           |
-| -------------------------- | -------------------------------- |
-| **How do I start?**        | Read START_HERE.md               |
-| **Network error?**         | Read FIX_NETWORK_ERROR.md        |
-| **Backend won't start?**   | Run `python backend/diagnose.py` |
-| **Can't understand logs?** | Read DEBUGGING_GUIDE.md          |
-| **Need architecture?**     | Read FINAL_IMPLEMENTATION.md     |
-| **What was fixed?**        | Read FINAL_RESOLUTION.md         |
+Before you start, verify:
 
----
-
-## 📊 System Status
-
-- **Backend**: ✅ Ready (port 8000)
-- **Mobile App**: ✅ Ready (connected via 10.0.2.2)
-- **Database**: ✅ SQLite configured
-- **Weather API**: ✅ Open-Meteo integrated
-- **ML Models**: ⚠️ Optional (fallback works)
-- **Logging**: ✅ Comprehensive
-- **Documentation**: ✅ Complete
+- [ ] You have Python 3.8+ installed
+- [ ] You have Node.js installed (for mobile)
+- [ ] You have Expo CLI: `npm install -g expo-cli`
+- [ ] You can access the G-Balancer directory
+- [ ] Port 8000 is available
 
 ---
 
-## 🎓 Learning Resources
+## 🚀 TL;DR - Quick Start
 
-### Understanding the Fix
+1. Read **[`COMMANDS_TO_RUN.md`](COMMANDS_TO_RUN.md)** (2 min)
+2. Run the commands (5 min)
+3. Open mobile app
+4. Done! 🎉
 
-1. Why Android Emulator needs 10.0.2.2 → See FINAL_RESOLUTION.md
-2. What the logs mean → See DEBUGGING_GUIDE.md
-3. How the system works → See FINAL_IMPLEMENTATION.md
-
-### Hands-On Learning
-
-1. Run backend and watch startup logs
-2. Start mobile app and watch request logs
-3. Tap "Refresh Data" and trace the data flow
-4. Read DEBUGGING_GUIDE.md to understand the logs
-
-### Advanced Topics
-
-1. ML model training → See ML_TRAINING_GUIDE.md
-2. Real-time updates → See MOBILE_INTEGRATION_GUIDE.md
-3. Deployment → See FINAL_IMPLEMENTATION.md
+For more details, see **[`COMPLETE_SYSTEM_GUIDE.md`](COMPLETE_SYSTEM_GUIDE.md)** or **[`ACTUAL_FIX_EXPLANATION.md`](ACTUAL_FIX_EXPLANATION.md)**
 
 ---
 
-## 📝 Change Log
+## 📞 Document Categories
 
-### Latest Changes (March 28, 2026)
+### 🔴 Critical (Read First)
 
-- ✅ Fixed Android Emulator network IP (10.0.2.2)
-- ✅ Added comprehensive console logging
-- ✅ Created diagnostic tools
-- ✅ Added detailed troubleshooting guides
-- ✅ Updated mobile app configuration
-- ✅ Enhanced backend logging
+- `COMMANDS_TO_RUN.md` - How to run everything
+- `ACTUAL_FIX_EXPLANATION.md` - What was wrong (if you got the error)
 
-### Previous Milestone: Integration Complete
+### 🟡 Important (Read Next)
 
-- ✅ Mobile and backend connected
+- `COMPLETE_SYSTEM_GUIDE.md` - Full system understanding
+- `QUICK_SETUP.md` - Verification steps
+
+### 🟢 Helpful (Reference)
+
+- `WSL_SETUP_GUIDE.md` - If using WSL
+- `FIX_SUMMARY.md` - If interested in fixes
+
+### 🔵 Advanced (Optional)
+
+- `documentation/IMPLEMENTATION_GUIDE.md` - Architecture
+- `documentation/ML_TRAINING_GUIDE.md` - ML models
+
+---
+
+## 🎯 Navigation Tips
+
+- **Confused about setup?** → `COMMANDS_TO_RUN.md`
+- **Got an error?** → `ACTUAL_FIX_EXPLANATION.md`
+- **Want to understand the system?** → `COMPLETE_SYSTEM_GUIDE.md`
+- **Using WSL?** → `WSL_QUICK_START.md`
+- **Want to verify it works?** → `QUICK_SETUP.md`
+- **Need API documentation?** → `http://10.21.39.161:8000/docs` (after backend starts)
+
+---
+
+## 📅 Document History
+
+| Document                  | Created | Last Updated | Status     |
+| ------------------------- | ------- | ------------ | ---------- |
+| COMMANDS_TO_RUN.md        | Mar 28  | Mar 28       | ✅ Current |
+| COMPLETE_SYSTEM_GUIDE.md  | Mar 28  | Mar 28       | ✅ Current |
+| ACTUAL_FIX_EXPLANATION.md | Mar 28  | Mar 28       | ✅ Current |
+| FIX_SUMMARY.md            | Mar 28  | Mar 28       | ✅ Current |
+| WSL_QUICK_START.md        | Mar 28  | Mar 28       | ✅ Current |
+| WSL_SETUP_GUIDE.md        | Mar 28  | Mar 28       | ✅ Current |
+| QUICK_SETUP.md            | Mar 27  | Mar 28       | ✅ Updated |
+
+---
+
+## 🎓 Learning Path
+
+**5-Minute Path:**
+
+1. `COMMANDS_TO_RUN.md`
+2. Run the commands
+3. See it work!
+
+**30-Minute Path:**
+
+1. `COMMANDS_TO_RUN.md`
+2. `COMPLETE_SYSTEM_GUIDE.md` (skim)
+3. `ACTUAL_FIX_EXPLANATION.md` (if you got the error)
+4. Run and explore
+
+**Full Understanding Path:**
+
+1. `COMPLETE_SYSTEM_GUIDE.md` (full read)
+2. `ACTUAL_FIX_EXPLANATION.md` (understand the fix)
+3. `documentation/IMPLEMENTATION_GUIDE.md` (architecture)
+4. `documentation/ML_TRAINING_GUIDE.md` (if interested in ML)
+5. Run and explore the code
+
+---
+
+## ✨ Key Insights
+
+### What Was Fixed
+
+- ✅ Backend now running on `0.0.0.0:8000` (all interfaces)
+- ✅ Port 8000 freed from WSL relay
+- ✅ All dependencies installed
+- ✅ Torch made optional
+- ✅ Import paths fixed
+
+### What Works Now
+
+- ✅ Backend reachable from mobile on 10.21.39.161:8000
+- ✅ All endpoints responding
+- ✅ Database initialized
+- ✅ Scheduler running
 - ✅ Real-time data flowing
-- ✅ All endpoints working
-- ✅ Documentation created
+
+### Why It Works
+
+- Backend listens on 0.0.0.0 (all interfaces)
+- Mobile can reach 10.21.39.161:8000
+- No import errors
+- All dependencies available
+- Formula-based fallback for ML
 
 ---
 
-**Last Updated:** March 28, 2026
-**Status:** ✅ Production Ready
-**Next Phase:** Testing & Optimization
+**🚀 Ready to start? Go to [`COMMANDS_TO_RUN.md`](COMMANDS_TO_RUN.md)**
