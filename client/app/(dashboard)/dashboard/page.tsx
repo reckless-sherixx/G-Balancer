@@ -5,13 +5,13 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 
-import { Header } from "../../components/dashboard/Header";
-import { CoreMetrics } from "../../components/dashboard/CoreMetrics";
-import { EnergyChart } from "../../components/dashboard/EnergyChart";
-import { BatteryPanel } from "../../components/dashboard/BatteryPanel";
-import { AIDecision } from "../../components/dashboard/AIDecision";
-import { FlowVisualizer } from "../../components/dashboard/FlowVisualizer";
-import { AlertsFeed } from "../../components/dashboard/AlertsFeed";
+import { Header } from "@/components/dashboard/Header";
+import { CoreMetrics } from "@/components/dashboard/CoreMetrics";
+import { EnergyChart } from "@/components/dashboard/EnergyChart";
+import { BatteryPanel } from "@/components/dashboard/BatteryPanel";
+import { AIDecision } from "@/components/dashboard/AIDecision";
+import { FlowVisualizer } from "@/components/dashboard/FlowVisualizer";
+import { AlertsFeed } from "@/components/dashboard/AlertsFeed";
 
 if (typeof window !== "undefined") {
   gsap.config({ nullTargetWarn: false });

@@ -29,7 +29,7 @@ export function CoreMetrics() {
           duration: 1.2,
           snap: { innerHTML: 0.01 },
           onUpdate: function() { 
-            freqRef.current!.innerHTML = Number(freqRef.current!.innerHTML).toFixed(2); 
+            if (freqRef.current) freqRef.current.innerHTML = Number(freqRef.current.innerHTML).toFixed(2); 
           }
         });
       }
@@ -41,7 +41,7 @@ export function CoreMetrics() {
           ease: "power2.inOut",
           snap: { innerHTML: 1 },
           onUpdate: function() { 
-            loadRef.current!.innerHTML = Number(loadRef.current!.innerHTML).toLocaleString(); 
+            if (loadRef.current) loadRef.current.innerHTML = Number(loadRef.current.innerHTML.replace(/,/g, '')).toLocaleString(); 
           }
         });
       }
@@ -52,7 +52,7 @@ export function CoreMetrics() {
           duration: 1.5,
           snap: { innerHTML: 0.1 },
           onUpdate: function() { 
-            confRef.current!.innerHTML = Number(confRef.current!.innerHTML).toFixed(1); 
+            if (confRef.current) confRef.current.innerHTML = Number(confRef.current.innerHTML).toFixed(1); 
           }
         });
       }
