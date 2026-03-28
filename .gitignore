@@ -7,8 +7,7 @@ __pycache__/
 node_modules/
 .DS_Store
 .env
-backend/ml/models/*.pt
-backend/ml/models/*.pkl
+
 backend/ml/data/real/
 backend/ml/data/processed/
 mobile/gbalancer/.expo/# Virtual Environments
