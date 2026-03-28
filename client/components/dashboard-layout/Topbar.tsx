@@ -1,8 +1,6 @@
 "use client";
 
-import { Bell, MapPin, User, CheckCircle2, AlertTriangle, XCircle, Menu } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/utils/cn";
+import { Bell, MapPin, User, Menu } from "lucide-react";
 
 export function Topbar({ 
   isMobileOpen, 
@@ -11,8 +9,8 @@ export function Topbar({
   isMobileOpen?: boolean; 
   setIsMobileOpen?: (val: boolean) => void; 
 }) {
-  const [city, setCity] = useState("Bangalore");
-  const [gridStatus, setGridStatus] = useState<"LIVE" | "WARNING" | "CRITICAL">("LIVE");
+  const city = "Mumbai";
+  const gridStatus: "LIVE" | "WARNING" | "CRITICAL" = "LIVE";
 
   return (
     <header className="fixed top-0 w-full h-20 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#222] z-30 flex items-center justify-between px-4 sm:px-6 md:px-8 transition-all duration-300 md:pl-[300px]" style={{ paddingLeft: 'calc(var(--sidebar-width, 0px) + 1rem)' }}>

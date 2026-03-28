@@ -37,16 +37,16 @@ export function AIDecision() {
     decisions.forEach((decision) => {
       // Type new string
       tl.to(".ai-text", {
-        duration: 1.5,
+        duration: 2.6,
         text: decision,
         ease: "none"
-      }, "+=0.2")
+      }, "+=0.4")
       // Hold reading time
-      .to(".ai-text", { duration: 1.5 })
+      .to(".ai-text", { duration: 2.2 })
       // Blink cursor rapidly to simulate processing
-      .to(".ai-cursor", { opacity: 0, duration: 0.1, yoyo: true, repeat: 5 })
+      .to(".ai-cursor", { opacity: 0, duration: 0.15, yoyo: true, repeat: 5 })
       // Clear out text
-      .to(".ai-text", { text: "", duration: 0.3 });
+      .to(".ai-text", { text: "", duration: 0.45 });
     });
   }, { scope: container, dependencies: [metrics, weather, stats] });
 

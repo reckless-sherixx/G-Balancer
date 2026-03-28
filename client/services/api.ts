@@ -336,8 +336,12 @@ export const api = {
       const carbon = (raw.carbon ?? {}) as JsonRecord;
 
       const savedKg = asNumber(carbon.co2_saved_kg ?? carbon.total_co2_saved_kg);
-      const trees = asNumber(carbon.trees_equivalent);
-      const credits = asNumber(carbon.carbon_credits_value_inr ?? carbon.credit_value_inr);
+      const trees = asNumber(
+        carbon.trees_equivalent ?? carbon.equivalent_trees_planted
+      );
+      const credits = asNumber(
+        carbon.carbon_credits_value_inr ?? carbon.credit_value_inr
+      );
 
       return {
         savedToday: savedKg / 1000,
