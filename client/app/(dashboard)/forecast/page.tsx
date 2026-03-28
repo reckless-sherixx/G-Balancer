@@ -1,19 +1,35 @@
 "use client";
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Cloud, Sun, Wind } from 'lucide-react';
 import { cn } from "@/utils/cn";
-
-const MOCK_DATA = Array.from({ length: 24 }).map((_, i) => ({
-  time: `${i}:00`,
-  demand: 10000 + Math.sin(i / 3) * 3000 + Math.random() * 500,
-  supply: 11000 + Math.sin(i / 3) * 2000 + Math.random() * 1000,
-  solar: i > 6 && i < 18 ? Math.sin((i - 6) / 4) * 4000 : 0,
-}));
+import { useGridStore } from '@/hooks/useGridData';
 
 export default function ForecastPage() {
   const [view, setView] = useState<"24h" | "72h">("24h");
+  const forecast = useGridStore((s) => s.forecast);
+  const weather = useGridStore((s) => s.weather);
+  const fetchForecast = useGridStore((s) => s.fetchForecast);
+  const fetchDashboard = useGridStore((s) => s.fetchDashboard);
+
+  useEffect(() => {
+    const hours = view === "24h" ? 24 : 72;
+    void fetchForecast("Mumbai", hours);
+    if (!weather) {
+      void fetchDashboard("Mumbai");
+    }
+  }, [view, fetchForecast, fetchDashboard, weather]);
+
+  const chartData = useMemo(() => {
+    const points = forecast?.points ?? [];
+    return points.map((point) => ({
+      time: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+      demand: point.demand,
+      supply: point.supply,
+      solar: point.solar,
+    }));
+  }, [forecast]);
   
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -33,21 +49,21 @@ export default function ForecastPage() {
         <div className="bg-[#111] border border-[#222] p-6 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-white/40 mb-1 block">Cloud Cover</span>
-            <div className="text-2xl font-mono">24%</div>
+            <div className="text-2xl font-mono">{(weather?.cloudCoverPercent ?? 0).toFixed(0)}%</div>
           </div>
           <Cloud className="w-8 h-8 text-white/20" />
         </div>
         <div className="bg-[#111] border border-[#222] p-6 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-white/40 mb-1 block">Solar Irradiance</span>
-            <div className="text-2xl font-mono">1.2k W/m²</div>
+            <div className="text-2xl font-mono">{(weather?.solarIrradiance ?? 0).toFixed(1)} W/m²</div>
           </div>
           <Sun className="w-8 h-8 text-yellow-500/50" />
         </div>
         <div className="bg-[#111] border border-[#222] p-6 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-white/40 mb-1 block">Wind Speed</span>
-            <div className="text-2xl font-mono">14 km/h</div>
+            <div className="text-2xl font-mono">{(weather?.windSpeedKmh ?? 0).toFixed(1)} km/h</div>
           </div>
           <Wind className="w-8 h-8 text-[#00F0FF]/50" />
         </div>
@@ -72,7 +88,7 @@ export default function ForecastPage() {
          
          <div className="flex-1 w-full min-h-[300px]">
           <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
-            <AreaChart data={MOCK_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorSupply" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#00FF41" stopOpacity={0.3}/>

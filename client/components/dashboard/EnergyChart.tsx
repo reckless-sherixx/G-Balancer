@@ -1,11 +1,44 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
+import { useGridStore } from "@/hooks/useGridData";
 
 export function EnergyChart() {
   const container = useRef<HTMLDivElement>(null);
+  const forecast = useGridStore((s) => s.forecast);
+
+  const chartPath = useMemo(() => {
+    const points = (forecast?.points ?? []).slice(0, 8);
+    if (points.length < 2) {
+      return {
+        demandPath: "M 0 55 C 20 50, 30 70, 50 60 C 70 50, 80 80, 100 65",
+        supplyPath: "M 0 45 C 20 40, 30 65, 50 45 C 70 25, 80 30, 100 15",
+      };
+    }
+
+    const demands = points.map((p) => p.demand);
+    const supplies = points.map((p) => p.supply);
+    const maxY = Math.max(...demands, ...supplies, 1);
+    const minY = Math.min(...demands, ...supplies, 0);
+    const span = Math.max(1, maxY - minY);
+
+    const toPath = (values: number[]) => {
+      const segments = values.map((value, i) => {
+        const x = (i / (values.length - 1)) * 100;
+        const normalized = (value - minY) / span;
+        const y = 85 - normalized * 70;
+        return `${x.toFixed(2)} ${y.toFixed(2)}`;
+      });
+      return `M ${segments.join(" L ")}`;
+    };
+
+    return {
+      demandPath: toPath(demands),
+      supplyPath: toPath(supplies),
+    };
+  }, [forecast]);
   
   useGSAP(() => {
     // Animate the line drawing in
@@ -50,7 +83,7 @@ export function EnergyChart() {
           {/* Demand Line */}
           <path 
             className="chart-line-demand"
-            d="M 0 55 C 20 50, 30 70, 50 60 C 70 50, 80 80, 100 65" 
+            d={chartPath.demandPath}
             fill="none" 
             stroke="rgba(255,255,255,0.3)" 
             strokeWidth="2" 
@@ -60,7 +93,7 @@ export function EnergyChart() {
           {/* Supply Line */}
           <path 
             className="chart-line"
-            d="M 0 45 C 20 40, 30 65, 50 45 C 70 25, 80 30, 100 15" 
+            d={chartPath.supplyPath}
             fill="none" 
             stroke="#00ff87" 
             strokeWidth="3" 
@@ -71,7 +104,7 @@ export function EnergyChart() {
           {/* Fill under supply */}
           <path 
             className="chart-fill"
-            d="M 0 45 C 20 40, 30 65, 50 45 C 70 25, 80 30, 100 15 L 100 100 L 0 100 Z" 
+            d={`${chartPath.supplyPath} L 100 100 L 0 100 Z`}
             fill="url(#supplyGradient)" 
             opacity="0.2"
           />

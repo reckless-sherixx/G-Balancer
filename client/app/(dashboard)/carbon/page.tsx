@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Leaf, TreePine, Banknote } from "lucide-react";
-import { api } from "@/services/api";
+import { api, CarbonMetrics } from "@/services/api";
 
 export default function CarbonPage() {
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<CarbonMetrics | null>(null);
 
   useEffect(() => {
     api.getCarbonMetrics().then(setMetrics);
@@ -16,7 +16,7 @@ export default function CarbonPage() {
       <div className="flex flex-col gap-4">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Decarbonization Impact</h1>
         <p className="text-white/50 text-sm max-w-xl">
-          Real-time tracking of CO₂ offset achieved by G-Balancer's dynamic load routing and intelligent battery dispatch.
+          Real-time tracking of CO2 offset achieved by G-Balancer&apos;s dynamic load routing and intelligent battery dispatch.
         </p>
       </div>
 

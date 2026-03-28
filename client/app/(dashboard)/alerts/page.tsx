@@ -8,6 +8,7 @@ import { cn } from "@/utils/cn";
 export default function AlertsPage() {
   const { alerts, fetchAlerts } = useGridStore();
   const [filter, setFilter] = useState<"ALL" | "INFO" | "WARNING" | "CRITICAL">("ALL");
+  const filters: Array<"ALL" | "CRITICAL" | "WARNING" | "INFO"> = ["ALL", "CRITICAL", "WARNING", "INFO"];
 
   useEffect(() => {
     fetchAlerts();
@@ -26,10 +27,10 @@ export default function AlertsPage() {
 
       <div className="flex items-center gap-4 border-b border-[#222] pb-6">
          <Filter className="w-4 h-4 text-white/50" />
-         {["ALL", "CRITICAL", "WARNING", "INFO"].map((flt) => (
+         {filters.map((flt) => (
            <button 
              key={flt}
-             onClick={() => setFilter(flt as any)}
+             onClick={() => setFilter(flt)}
              className={cn(
                "px-4 py-2 text-xs font-bold uppercase tracking-widest rounded transition-colors border",
                filter === flt 

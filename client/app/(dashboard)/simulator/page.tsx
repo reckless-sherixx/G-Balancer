@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Play, RotateCcw, Zap, AlertTriangle, ArrowRight } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { api } from "@/services/api";
+import { api, SimulationResult } from "@/services/api";
 
 const MOCK_SCENARIOS = [
   { id: "solar_drop", label: "Massive Solar Drop", desc: "Simulates a sudden 80% loss in solar irradiance." },
@@ -16,7 +16,7 @@ export default function SimulatorPage() {
   const [scenario, setScenario] = useState(MOCK_SCENARIOS[0].id);
   const [severity, setSeverity] = useState(50);
   const [isRunning, setIsRunning] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SimulationResult | null>(null);
 
   const handleSimulate = async () => {
     setIsRunning(true);

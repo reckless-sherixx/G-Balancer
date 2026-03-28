@@ -1,55 +1,37 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { AlertTriangle, Info, XCircle } from "lucide-react";
+import { useGridStore } from "@/hooks/useGridData";
 
 type Alert = {
-  id: number;
+  id: string;
   type: "info" | "warning" | "critical";
   message: string;
   time: string;
 };
 
-const MOCK_ALERTS: Omit<Alert, 'id' | 'time'>[] = [
-  { type: "info", message: "Node 142 synchronization complete." },
-  { type: "warning", message: "Minor frequency drop in Sector 7." },
-  { type: "info", message: "Battery array B engaging charge mode." },
-  { type: "critical", message: "Connection lost to Weather Station Alpha." },
-  { type: "warning", message: "Load spike predicted in 15 mins." },
-];
-
 export function AlertsFeed() {
   const container = useRef<HTMLDivElement>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const rawAlerts = useGridStore((s) => s.alerts);
+  const fetchAlerts = useGridStore((s) => s.fetchAlerts);
 
-  // Seed initial alerts
   useEffect(() => {
-    const initial = MOCK_ALERTS.slice(0, 3).map((a, i) => ({
-      ...a,
-      id: Date.now() + i,
-      time: new Date().toLocaleTimeString('en-US', { hour12: false })
-    }));
-    setAlerts(initial);
-  }, []);
+    void fetchAlerts("Mumbai", 4);
+    const interval = setInterval(() => {
+      void fetchAlerts("Mumbai", 4);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
 
-  // Simulate pushing new alerts periodically
-  useEffect(() => {
-    const int = setInterval(() => {
-      setAlerts(prev => {
-        const randomAlert = MOCK_ALERTS[Math.floor(Math.random() * MOCK_ALERTS.length)];
-        const newAlert = {
-          ...randomAlert,
-          id: Date.now(),
-          time: new Date().toLocaleTimeString('en-US', { hour12: false })
-        };
-        // Keep only last 4
-        return [newAlert, ...prev].slice(0, 4);
-      });
-    }, 4500);
-    return () => clearInterval(int);
-  }, []);
+  const alerts: Alert[] = rawAlerts.slice(0, 4).map((alert) => ({
+    id: alert.id,
+    type: alert.type.toLowerCase() as Alert["type"],
+    message: alert.msg,
+    time: alert.time,
+  }));
 
   useGSAP(() => {
     if (alerts.length === 0) return;
@@ -65,7 +47,7 @@ export function AlertsFeed() {
     <div ref={container} className="bg-[#141414] border border-[#222] p-6 lg:p-8 flex flex-col h-[400px] overflow-hidden group hover:border-[#333] transition-colors">
        <div className="flex justify-between items-center mb-6">
          <h3 className="font-bebas text-2xl tracking-wide text-white">Live Operations Feed</h3>
-         <span className="font-mono text-[10px] uppercase text-white/40 tracking-widest px-2 py-1 bg-[#1A1A1A] border border-[#333] rounded-sm">Polling...</span>
+         <span className="font-mono text-[10px] uppercase text-white/40 tracking-widest px-2 py-1 bg-[#1A1A1A] border border-[#333] rounded-sm">Live</span>
        </div>
 
        <div className="flex-1 flex flex-col gap-3 overflow-hidden">

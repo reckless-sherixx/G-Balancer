@@ -52,8 +52,23 @@ const GRID_MAP: Record<string, string> = {
   "Tripura": "northeast",
 };
 
+type RegionData = {
+  id: string;
+  name: string;
+  status: "deficit" | "balanced" | "surplus";
+  load: number;
+};
+
+type GeoFeature = {
+  rsmKey: string;
+  properties: {
+    ST_NM?: string;
+    name?: string;
+  };
+};
+
 // Mock regions mapping to data
-const REGIONS: Record<string, any> = {
+const REGIONS: Record<string, RegionData> = {
   north: { id: "north", name: "Northern Grid", status: "deficit", load: 92 },
   west: { id: "west", name: "Western Grid", status: "balanced", load: 75 },
   south: { id: "south", name: "Southern Grid", status: "surplus", load: 60 },
@@ -85,13 +100,13 @@ export function IndiaMap() {
     }
   };
 
-  const handleStateClick = (geo: any) => {
+  const handleStateClick = (geo: GeoFeature) => {
     const stateName = geo.properties.ST_NM || geo.properties.name;
     const gridId = GRID_MAP[stateName] || "east"; // fallback
     setActiveRegionId(gridId);
   };
 
-  const activeRegion = activeRegionId ? REGIONS[activeRegionId] : null;
+  const activeRegion = activeRegionId ? REGIONS[activeRegionId] ?? null : null;
 
   return (
     <div ref={container} className="w-full h-full flex flex-col lg:flex-row gap-6 relative">
@@ -107,16 +122,16 @@ export function IndiaMap() {
             <Geographies geography={INDIA_TOPO_JSON}>
               {({ geographies }) =>
                 geographies.map((geo) => {
-                  const stateName = geo.properties.ST_NM || geo.properties.name;
+                  const typedGeo = geo as GeoFeature;
+                  const stateName = typedGeo.properties.ST_NM || typedGeo.properties.name;
                   const gridId = GRID_MAP[stateName] || "east";
-                  const regionData = REGIONS[gridId];
-                  const isActive = activeRegionId === gridId;
+                  const regionData = REGIONS[gridId] ?? REGIONS.east;
                   
                   return (
                     <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      onClick={() => handleStateClick(geo)}
+                      key={typedGeo.rsmKey}
+                      geography={typedGeo}
+                      onClick={() => handleStateClick(typedGeo)}
                       className="map-geography transition-all duration-300 cursor-pointer outline-none"
                       style={{
                         default: {

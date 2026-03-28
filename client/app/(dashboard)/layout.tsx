@@ -2,7 +2,7 @@
 
 import { Sidebar } from "@/components/dashboard-layout/Sidebar";
 import { Topbar } from "@/components/dashboard-layout/Topbar";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import gsap from "gsap";
 import { usePathname } from "next/navigation";
 import { useGSAP } from "@gsap/react";
